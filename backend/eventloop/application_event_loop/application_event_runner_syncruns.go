@@ -183,6 +183,7 @@ func (a *applicationEventLoopRunner_Action) applicationEventRunner_handleSyncRun
 			return false, err
 		}
 		createdResources = append(createdResources, syncOperation)
+		log.Info("Created a Sync Operation: " + syncOperation.SyncOperation_id)
 
 		newApiCRToDBMapping := db.APICRToDatabaseMapping{
 			APIResourceType: db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentSyncRun,
@@ -202,6 +203,7 @@ func (a *applicationEventLoopRunner_Action) applicationEventRunner_handleSyncRun
 
 			return false, err
 		}
+		log.Info(fmt.Sprintf("Created a ApiCRToDBMapping: (APIResourceType: %s, APIResourceUID: %s, DBRelationType: %s)", newApiCRToDBMapping.APIResourceType, newApiCRToDBMapping.APIResourceUID, newApiCRToDBMapping.DBRelationType))
 		createdResources = append(createdResources, &newApiCRToDBMapping)
 
 		operationClient, err := a.getK8sClientForGitOpsEngineInstance(gitopsEngineInstance)
@@ -304,6 +306,8 @@ func (a *applicationEventLoopRunner_Action) applicationEventRunner_handleSyncRun
 		if _, err := dbQueries.DeleteSyncOperationById(ctx, syncOperation.SyncOperation_id); err != nil {
 			log.Error(err, "could not delete sync operation, when resource was deleted", "namespace", dbutil.GetGitOpsEngineSingleInstanceNamespace())
 			return false, err
+		} else {
+			log.Info("Sync Operation deleted with ID: ", syncOperation.SyncOperation_id)
 		}
 
 		var allErrors error
@@ -401,6 +405,8 @@ func (a *applicationEventLoopRunner_Action) cleanupOldSyncDBEntry(ctx context.Co
 		return err
 	} else if rowsDeleted == 0 {
 		log.V(sharedutil.LogLevel_Warn).Error(err, "unexpected number of rows deleted on sync db entry delete", "key", apiCRToDB.DBRelationKey)
+	} else {
+		log.Info("Sync Operation deleted with ID: " + apiCRToDB.DBRelationKey)
 	}
 
 	var operations []db.Operation
@@ -420,6 +426,8 @@ func (a *applicationEventLoopRunner_Action) cleanupOldSyncDBEntry(ctx context.Co
 				return err
 			} else if rowsDeleted == 0 {
 				log.V(sharedutil.LogLevel_Warn).Error(err, "unexpected number of deleted rows when deleting old operation")
+			} else {
+				log.Info("Operation deleted with ID: " + operationId)
 			}
 		}
 	}
@@ -431,6 +439,8 @@ func (a *applicationEventLoopRunner_Action) cleanupOldSyncDBEntry(ctx context.Co
 
 	} else if rowsDeleted == 0 {
 		log.V(sharedutil.LogLevel_Warn).Error(err, "unexpected number of rows deleted of apiCRToDBmapping", "mapping", apiCRToDB.APIResourceUID)
+	} else {
+		log.Info("Deleted APICRToDatabaseMapping")
 	}
 
 	return nil

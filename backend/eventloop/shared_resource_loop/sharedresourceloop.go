@@ -265,7 +265,7 @@ func processSharedResourceMessage(ctx context.Context, msg sharedResourceLoopMes
 
 	} else if msg.messageType == sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUID {
 
-		clusterUser, isNewUser, err := internalProcessMessage_GetOrCreateClusterUserByNamespaceUID(ctx, msg.workspaceNamespace, dbQueries)
+		clusterUser, isNewUser, err := internalProcessMessage_GetOrCreateClusterUserByNamespaceUID(ctx, msg.workspaceNamespace, dbQueries, log)
 
 		response := sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUIDResponse{
 			err:         err,
@@ -319,8 +319,9 @@ func internalProcessMessage_GetGitopsEngineInstanceById(ctx context.Context, id 
 
 // The bool return value is 'true' if ClusterUser is created; 'false' if it already exists in DB or in case of failure.
 func internalProcessMessage_GetOrCreateClusterUserByNamespaceUID(ctx context.Context, workspaceNamespace corev1.Namespace,
-	dbq db.DatabaseQueries) (*db.ClusterUser, bool, error) {
+	dbq db.DatabaseQueries, log logr.Logger) (*db.ClusterUser, bool, error) {
 	isNewUser := false
+
 	// TODO: GITOPSRVCE-19 - KCP support: for now, we assume that the namespace UID that the request occurred in is the user id.
 	clusterUser := db.ClusterUser{User_name: string(workspaceNamespace.UID)}
 
@@ -333,6 +334,7 @@ func internalProcessMessage_GetOrCreateClusterUserByNamespaceUID(ctx context.Con
 			if err := dbq.CreateClusterUser(ctx, &clusterUser); err != nil {
 				return nil, false, err
 			}
+			log.V(sharedutil.LogLevel_Debug).Info("Cluster User Created with User ID: " + clusterUser.Clusteruser_id)
 
 		} else {
 			return nil, false, err
@@ -349,7 +351,7 @@ func internalProcessMessage_GetOrCreateSharedResources(ctx context.Context, work
 	workspaceNamespace corev1.Namespace, dbQueries db.DatabaseQueries,
 	log logr.Logger) (*db.ClusterUser, bool, *db.ManagedEnvironment, bool, *db.GitopsEngineInstance, bool, *db.ClusterAccess, bool, *db.GitopsEngineCluster, error) {
 
-	clusterUser, isNewUser, err := internalGetOrCreateClusterUserByNamespaceUID(ctx, string(workspaceNamespace.UID), dbQueries)
+	clusterUser, isNewUser, err := internalGetOrCreateClusterUserByNamespaceUID(ctx, string(workspaceNamespace.UID), dbQueries, log)
 	if err != nil {
 		return nil, false, nil, false, nil, false, nil, false, nil, fmt.Errorf("unable to retrieve cluster user in processMessage, '%s': %v", string(workspaceNamespace.UID), err)
 	}
@@ -373,7 +375,7 @@ func internalProcessMessage_GetOrCreateSharedResources(ctx context.Context, work
 		Clusteraccess_gitops_engine_instance_id: engineInstance.Gitopsengineinstance_id,
 	}
 
-	err, isNewClusterAccess := internalGetOrCreateClusterAccess(ctx, &ca, dbQueries)
+	err, isNewClusterAccess := internalGetOrCreateClusterAccess(ctx, &ca, dbQueries, log)
 	if err != nil {
 		log.Error(err, "unable to create cluster access")
 		return nil, false, nil, false, nil, false, nil, false, nil, err
@@ -434,7 +436,7 @@ func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context,
 }
 
 // The bool return value is 'true' if ClusterAccess is created; 'false' if it already exists in DB or in case of failure.
-func internalGetOrCreateClusterAccess(ctx context.Context, ca *db.ClusterAccess, dbq db.DatabaseQueries) (error, bool) {
+func internalGetOrCreateClusterAccess(ctx context.Context, ca *db.ClusterAccess, dbq db.DatabaseQueries, log logr.Logger) (error, bool) {
 
 	if err := dbq.GetClusterAccessByPrimaryKey(ctx, ca); err != nil {
 
@@ -448,13 +450,15 @@ func internalGetOrCreateClusterAccess(ctx context.Context, ca *db.ClusterAccess,
 	if err := dbq.CreateClusterAccess(ctx, ca); err != nil {
 		return err, false
 	}
+	log.V(sharedutil.LogLevel_Debug).Info(fmt.Sprintf("Cluster Access Created for UserID: %s, for ManagedEnvironment: %s", ca.Clusteraccess_user_id, ca.Clusteraccess_managed_environment_id))
 
 	return nil, true
 }
 
 // The bool return value is 'true' if ClusterUser is created; 'false' if it already exists in DB or in case of failure.
-func internalGetOrCreateClusterUserByNamespaceUID(ctx context.Context, namespaceUID string, dbq db.DatabaseQueries) (*db.ClusterUser, bool, error) {
+func internalGetOrCreateClusterUserByNamespaceUID(ctx context.Context, namespaceUID string, dbq db.DatabaseQueries, log logr.Logger) (*db.ClusterUser, bool, error) {
 	isNewUser := false
+
 	// TODO: GITOPSRVCE-19 - KCP support: for now, we assume that the namespace UID that the request occurred in is the user id.
 	clusterUser := db.ClusterUser{User_name: namespaceUID}
 
@@ -466,6 +470,7 @@ func internalGetOrCreateClusterUserByNamespaceUID(ctx context.Context, namespace
 			if err := dbq.CreateClusterUser(ctx, &clusterUser); err != nil {
 				return nil, false, err
 			}
+			log.V(sharedutil.LogLevel_Debug).Info("Cluster User Created with User ID: " + clusterUser.Clusteruser_id)
 
 		} else {
 			return nil, false, err

@@ -125,6 +125,8 @@ func (task *processEventTask) PerformTask(taskContext context.Context) (bool, er
 		if err := dbQueries.UpdateOperation(taskContext, dbOperation); err != nil {
 			task.log.Error(err, "unable to update operation state", "operation", dbOperation.Operation_id)
 			return true, err
+		} else {
+			task.log.Info("Updated Operation State at: ", dbOperation.Operation_id)
 		}
 	}
 
