@@ -1,150 +1,129 @@
-package db
+package db_test
 
 import (
 	"context"
-	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	db "github.com/redhat-appstudio/managed-gitops/backend-shared/config/db"
 )
 
-func TestCreateandDeleteDeploymentToApplicationMapping(t *testing.T) {
-
-	testSetup(t)
-	defer testTeardown(t)
-
-	ctx := context.Background()
-	dbq, err := NewUnsafePostgresDBQueries(true, true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer dbq.CloseDatabase()
-
-	_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(t, dbq)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	application := &Application{
-		Application_id:          "test-my-application",
-		Name:                    "my-application",
-		Spec_field:              "{}",
-		Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
-		Managed_environment_id:  managedEnvironment.Managedenvironment_id,
-	}
-
-	err = dbq.CreateApplication(ctx, application)
-
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	deploymentToApplicationMapping := &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: "test-" + generateUuid(),
-		Application_id:                        application.Application_id,
-		DeploymentName:                        "test-deployment",
-		DeploymentNamespace:                   "test-namespace",
-		WorkspaceUID:                          "demo-workspace",
-	}
-
-	err = dbq.CreateDeploymentToApplicationMapping(ctx, deploymentToApplicationMapping)
-	if !assert.NoError(t, err) {
-		return
-	}
-	fetchRow := &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
-	}
-	err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
-	if !assert.NoError(t, err) && !assert.ObjectsAreEqualValues(fetchRow, deploymentToApplicationMapping) {
-		assert.Fail(t, "Values between Fetched Row and Inserted Row don't match.")
-	}
-	rowsAffected, err := dbq.DeleteDeploymentToApplicationMappingByDeplId(ctx, deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, rowsAffected)
-	fetchRow = &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
-	}
-	err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
-	assert.True(t, IsResultNotFoundError(err))
-
+func generateUuid() string {
+	return uuid.New().String()
 }
 
-func TestAllListDeploymentToApplicationMapping(t *testing.T) {
-	testSetup(t)
-	defer testTeardown(t)
+var _ = Describe("DeploymentToApplicationMapping Tests", func() {
+	Context("It should execute all DeploymentToApplicationMapping Functions", func() {
+		It("Should execute all DeploymentToApplicationMapping Functions", func() {
+			ginkgoTestSetup()
+			ctx := context.Background()
+			dbq, err := db.NewUnsafePostgresDBQueries(true, true)
+			Expect(err).To(BeNil())
+			defer dbq.CloseDatabase()
 
-	ctx := context.Background()
-	dbq, err := NewUnsafePostgresDBQueries(true, true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer dbq.CloseDatabase()
+			_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(dbq)
+			Expect(err).To(BeNil())
 
-	_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(t, dbq)
-	if !assert.NoError(t, err) {
-		return
-	}
+			application := &db.Application{
+				Application_id:          "test-my-application",
+				Name:                    "my-application",
+				Spec_field:              "{}",
+				Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
+				Managed_environment_id:  managedEnvironment.Managedenvironment_id,
+			}
 
-	application := &Application{
-		Application_id:          "test-my-application",
-		Name:                    "my-application",
-		Spec_field:              "{}",
-		Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
-		Managed_environment_id:  managedEnvironment.Managedenvironment_id,
-	}
+			err = dbq.CreateApplication(ctx, application)
 
-	err = dbq.CreateApplication(ctx, application)
+			Expect(err).To(BeNil())
 
-	if !assert.NoError(t, err) {
-		return
-	}
+			deploymentToApplicationMapping := &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: "test-" + generateUuid(),
+				Application_id:                        application.Application_id,
+				DeploymentName:                        "test-deployment",
+				DeploymentNamespace:                   "test-namespace",
+				WorkspaceUID:                          "demo-workspace",
+			}
 
-	deploymentToApplicationMapping := &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: "test-" + generateUuid(),
-		Application_id:                        application.Application_id,
-		DeploymentName:                        "test-deployment",
-		DeploymentNamespace:                   "test-namespace",
-		WorkspaceUID:                          "demo-workspace",
-	}
+			err = dbq.CreateDeploymentToApplicationMapping(ctx, deploymentToApplicationMapping)
+			Expect(err).To(BeNil())
+			fetchRow := &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
+			}
+			err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
+			Expect(err).To(BeNil())
+			Expect(fetchRow).To(Equal(deploymentToApplicationMapping))
 
-	err = dbq.CreateDeploymentToApplicationMapping(ctx, deploymentToApplicationMapping)
-	if !assert.NoError(t, err) {
-		return
-	}
-	var dbResults []DeploymentToApplicationMapping
-	dbResult := &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
-	}
+			rowsAffected, err := dbq.DeleteDeploymentToApplicationMappingByDeplId(ctx, deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id)
+			Expect(err).To(BeNil())
+			Expect(rowsAffected).To(Equal(1))
+			fetchRow = &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
+			}
+			err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
+			Expect(true).To(Equal(db.IsResultNotFoundError(err)))
+		})
+		It("Should Successfully Test ListAll Function", func() {
+			ginkgoTestSetup()
+			ctx := context.Background()
+			dbq, err := db.NewUnsafePostgresDBQueries(true, true)
+			Expect(err).To(BeNil())
+			defer dbq.CloseDatabase()
 
-	err = dbq.ListDeploymentToApplicationMappingByWorkspaceUID(ctx, "demo-workspace", &dbResults)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.True(t, len(dbResults) == 1)
-	assert.Equal(t, dbResults[0], *deploymentToApplicationMapping)
+			_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(dbq)
+			Expect(err).To(BeNil())
 
-	err = dbq.ListDeploymentToApplicationMappingByNamespaceAndName(ctx, deploymentToApplicationMapping.DeploymentName, deploymentToApplicationMapping.DeploymentNamespace, deploymentToApplicationMapping.WorkspaceUID, &dbResults)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.Equal(t, dbResults[0], *deploymentToApplicationMapping)
+			application := &db.Application{
+				Application_id:          "test-my-application",
+				Name:                    "my-application",
+				Spec_field:              "{}",
+				Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
+				Managed_environment_id:  managedEnvironment.Managedenvironment_id,
+			}
 
-	err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, dbResult)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.Equal(t, dbResult, deploymentToApplicationMapping)
-	err = dbq.GetDeploymentToApplicationMappingByApplicationId(ctx, dbResult)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.Equal(t, dbResult, deploymentToApplicationMapping)
+			err = dbq.CreateApplication(ctx, application)
 
-	rowsAffected, err := dbq.DeleteDeploymentToApplicationMappingByDeplId(ctx, deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, rowsAffected)
-	fetchRow := &DeploymentToApplicationMapping{
-		Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
-	}
-	err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
-	assert.True(t, IsResultNotFoundError(err))
-}
+			Expect(err).To(BeNil())
+
+			deploymentToApplicationMapping := &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: "test-" + generateUuid(),
+				Application_id:                        application.Application_id,
+				DeploymentName:                        "test-deployment",
+				DeploymentNamespace:                   "test-namespace",
+				WorkspaceUID:                          "demo-workspace",
+			}
+
+			err = dbq.CreateDeploymentToApplicationMapping(ctx, deploymentToApplicationMapping)
+			Expect(err).To(BeNil())
+			var dbResults []db.DeploymentToApplicationMapping
+			dbResult := &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
+			}
+
+			err = dbq.ListDeploymentToApplicationMappingByWorkspaceUID(ctx, "demo-workspace", &dbResults)
+			Expect(err).To(BeNil())
+			Expect(len(dbResults)).Should(Equal(1))
+			Expect(dbResults[0]).Should(Equal(*deploymentToApplicationMapping))
+
+			err = dbq.ListDeploymentToApplicationMappingByNamespaceAndName(ctx, deploymentToApplicationMapping.DeploymentName, deploymentToApplicationMapping.DeploymentNamespace, deploymentToApplicationMapping.WorkspaceUID, &dbResults)
+			Expect(err).To(BeNil())
+			Expect(dbResults[0]).Should(Equal(*deploymentToApplicationMapping))
+
+			err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, dbResult)
+			Expect(err).To(BeNil())
+			Expect(dbResult).Should(Equal(deploymentToApplicationMapping))
+			err = dbq.GetDeploymentToApplicationMappingByApplicationId(ctx, dbResult)
+			Expect(err).To(BeNil())
+			Expect(dbResult).Should(Equal(deploymentToApplicationMapping))
+
+			rowsAffected, err := dbq.DeleteDeploymentToApplicationMappingByDeplId(ctx, deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id)
+			Expect(err).To(BeNil())
+			Expect(rowsAffected).Should(Equal(1))
+			fetchRow := &db.DeploymentToApplicationMapping{
+				Deploymenttoapplicationmapping_uid_id: deploymentToApplicationMapping.Deploymenttoapplicationmapping_uid_id,
+			}
+			err = dbq.GetDeploymentToApplicationMappingByDeplId(ctx, fetchRow)
+			Expect(true).To(Equal(db.IsResultNotFoundError(err)))
+		})
+	})
+})

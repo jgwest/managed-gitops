@@ -1,87 +1,78 @@
-package db
+package db_test
 
 import (
 	"context"
-	"testing"
 
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	db "github.com/redhat-appstudio/managed-gitops/backend-shared/config/db"
 )
 
-func TestCreateandGetSyncOperation(t *testing.T) {
-	testSetup(t)
-	defer testTeardown(t)
+var _ = Describe("SyncOperation Tests", func() {
+	Context("It should execute all SyncOperation Functions", func() {
+		It("Should execute all SyncOperation Functions", func() {
+			ginkgoTestSetup()
+			ctx := context.Background()
+			dbq, err := db.NewUnsafePostgresDBQueries(true, true)
+			Expect(err).To(BeNil())
+			defer dbq.CloseDatabase()
 
-	ctx := context.Background()
-	dbq, err := NewUnsafePostgresDBQueries(true, true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer dbq.CloseDatabase()
+			_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(dbq)
+			Expect(err).To(BeNil())
 
-	_, managedEnvironment, _, gitopsEngineInstance, _, err := createSampleData(t, dbq)
-	if !assert.NoError(t, err) {
-		return
-	}
+			application := &db.Application{
+				Application_id:          "test-my-application",
+				Name:                    "my-application",
+				Spec_field:              "{}",
+				Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
+				Managed_environment_id:  managedEnvironment.Managedenvironment_id,
+			}
 
-	application := &Application{
-		Application_id:          "test-my-application",
-		Name:                    "my-application",
-		Spec_field:              "{}",
-		Engine_instance_inst_id: gitopsEngineInstance.Gitopsengineinstance_id,
-		Managed_environment_id:  managedEnvironment.Managedenvironment_id,
-	}
+			err = dbq.CreateApplication(ctx, application)
 
-	err = dbq.CreateApplication(ctx, application)
+			Expect(err).To(BeNil())
 
-	if !assert.NoError(t, err) {
-		return
-	}
+			operation := &db.Operation{
+				Operation_id:            "test-operation",
+				Instance_id:             gitopsEngineInstance.Gitopsengineinstance_id,
+				Resource_id:             "fake resource id",
+				Resource_type:           "GitopsEngineInstance",
+				State:                   db.OperationState_Waiting,
+				Operation_owner_user_id: testClusterUser.Clusteruser_id,
+			}
 
-	operation := &Operation{
-		Operation_id:            "test-operation",
-		Instance_id:             gitopsEngineInstance.Gitopsengineinstance_id,
-		Resource_id:             "fake resource id",
-		Resource_type:           "GitopsEngineInstance",
-		State:                   OperationState_Waiting,
-		Operation_owner_user_id: testClusterUser.Clusteruser_id,
-	}
+			err = dbq.CreateOperation(ctx, operation, operation.Operation_owner_user_id)
 
-	err = dbq.CreateOperation(ctx, operation, operation.Operation_owner_user_id)
+			Expect(err).To(BeNil())
 
-	if !assert.NoError(t, err) {
-		return
-	}
+			insertRow := db.SyncOperation{
+				SyncOperation_id:    "test-sync",
+				Application_id:      application.Application_id,
+				Operation_id:        operation.Operation_id,
+				DeploymentNameField: "testDeployment",
+				Revision:            "testRev",
+				DesiredState:        "Terminated",
+			}
 
-	insertRow := SyncOperation{
-		SyncOperation_id:    "test-sync",
-		Application_id:      application.Application_id,
-		Operation_id:        operation.Operation_id,
-		DeploymentNameField: "testDeployment",
-		Revision:            "testRev",
-		DesiredState:        "Terminated",
-	}
+			err = dbq.CreateSyncOperation(ctx, &insertRow)
 
-	err = dbq.CreateSyncOperation(ctx, &insertRow)
+			Expect(err).To(BeNil())
+			fetchRow := db.SyncOperation{
+				SyncOperation_id: "test-sync",
+			}
+			err = dbq.GetSyncOperationById(ctx, &fetchRow)
+			Expect(err).To(BeNil())
+			Expect(fetchRow).Should(Equal(insertRow))
 
-	if !assert.NoError(t, err) {
-		return
-	}
-	fetchRow := SyncOperation{
-		SyncOperation_id: "test-sync",
-	}
-	err = dbq.GetSyncOperationById(ctx, &fetchRow)
-	if !assert.NoError(t, err) && !assert.ObjectsAreEqualValues(fetchRow, insertRow) {
-		assert.Fail(t, "Values between Fetched Row and Inserted Row don't match.")
-	}
+			rowCount, err := dbq.DeleteSyncOperationById(ctx, insertRow.SyncOperation_id)
+			Expect(err).To(BeNil())
+			Expect(rowCount).Should(Equal(1))
+			fetchRow = db.SyncOperation{
+				SyncOperation_id: "test-sync",
+			}
 
-	rowCount, err := dbq.DeleteSyncOperationById(ctx, insertRow.SyncOperation_id)
-	assert.NoError(t, err)
-	assert.True(t, rowCount == 1)
-	fetchRow = SyncOperation{
-		SyncOperation_id: "test-sync",
-	}
-
-	err = dbq.GetSyncOperationById(ctx, &fetchRow)
-	assert.True(t, IsResultNotFoundError(err))
-
-}
+			err = dbq.GetSyncOperationById(ctx, &fetchRow)
+			Expect(true).To(Equal(db.IsResultNotFoundError(err)))
+		})
+	})
+})
