@@ -3,6 +3,7 @@ module github.com/redhat-appstudio/managed-gitops/cluster-agent
 go 1.17
 
 require (
+	github.com/argoproj-labs/argocd-operator v0.3.0
 	github.com/argoproj/argo-cd/v2 v2.3.1
 	github.com/argoproj/gitops-engine v0.6.0
 	github.com/coreos/go-oidc v2.1.0+incompatible
@@ -11,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
-	github.com/openshift/api v3.9.0+incompatible
+	github.com/openshift/api v3.9.1-0.20190916204813-cdbe64fb0c91+incompatible
 	github.com/redhat-appstudio/managed-gitops/backend v0.0.0-20220422082552-1a27f1719d52
 	github.com/redhat-appstudio/managed-gitops/backend-shared v0.0.0
 	github.com/stretchr/testify v1.7.0
@@ -20,7 +21,7 @@ require (
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
-	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
+	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/yaml v1.3.0
