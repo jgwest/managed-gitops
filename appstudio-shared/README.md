@@ -18,7 +18,7 @@ The APIs defined in this module is based on the [Environment API discussions](ht
 
 To install the CRDs to a cluster:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/redhat-appstudio/managed-gitops/main/appstudio-shared/manifests/crd-install.yaml
+kubectl apply -f https://raw.githubusercontent.com/redhat-appstudio/managed-gitops/main/appstudio-shared/manifests/appstudio-shared-customresourcedefinitions.yaml
 ```
 
 ### Generate controllers for the APIs in your operator

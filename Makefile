@@ -92,7 +92,7 @@ test-cluster-agent: ## Run test for cluster-agent only
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 deploy-appstudio-controller-crd: ## Deploy appstudio-controller related CRDs
 	# Application CR
-	kubectl apply -f appstudio-shared/manifests/crd-install.yaml
+	kubectl apply -f appstudio-shared/manifests/appstudio-shared-customresourcedefinitions.yaml
 	kubectl apply -f https://raw.githubusercontent.com/redhat-appstudio/application-service/a3c147c351d4bb5273de1a692143bee319693c64/bundle/manifests/appstudio.redhat.com_applications.yaml
 
 undeploy-appstudio-controller-crd: ## Remove appstudio-controller related CRDs
@@ -203,3 +203,11 @@ fmt: ## Run 'go fmt' on all components
 	cd $(MAKEFILE_ROOT)/backend && make fmt
 	cd $(MAKEFILE_ROOT)/cluster-agent && make fmt
 	cd $(MAKEFILE_ROOT)/appstudio-controller && make fmt
+
+generate-manifests: ## call the 'generate' and 'manifests' targets of every project
+	cd $(MAKEFILE_ROOT)/appstudio-shared && make generate manifests
+	cd $(MAKEFILE_ROOT)/backend-shared && make generate manifests
+	cd $(MAKEFILE_ROOT)/backend && make generate manifests
+	cd $(MAKEFILE_ROOT)/cluster-agent && make generate manifests
+	cd $(MAKEFILE_ROOT)/appstudio-controller && make generate manifests
+

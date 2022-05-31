@@ -196,6 +196,6 @@ jobs:
           go-version-file: './backend/go.mod'
       - name: "appstudio-shared: Run 'make generate manifests' and report any diff"
         run: |
-          cd appstudio-controller
-          make generate manifests
+          cd $GITHUB_WORKSPACE
+          make generate-manifests
           git diff --exit-code -- .
