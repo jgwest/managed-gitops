@@ -65,6 +65,15 @@ type ApplicationDestination struct {
 	Name string `json:"name,omitempty" protobuf:"bytes,3,opt,name=name"`
 }
 
+type FauxComparedTo struct {
+
+	// Source is a reference to the location of the application's manifests or chart
+	Source ApplicationSource `json:"source"`
+
+	// Destination is a reference to the target Kubernetes server and namespace
+	Destination ApplicationDestination `json:"destination"`
+}
+
 // SyncPolicy controls when a sync will be performed in response to updates in git
 type SyncPolicy struct {
 	// Automated will keep an application synced to the target revision

@@ -270,6 +270,8 @@ type ApplicationState struct {
 
 	Resources []byte `pg:"resources"`
 
+	ReconciledState string `pg:"reconciled_state"`
+
 	// -- human_readable_health ( 512 ) NOT NULL,
 	// -- human_readable_sync ( 512 ) NOT NULL,
 	// -- human_readable_state ( 512 ) NOT NULL,

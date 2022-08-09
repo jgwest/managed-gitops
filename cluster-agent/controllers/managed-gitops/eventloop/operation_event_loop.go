@@ -369,9 +369,6 @@ func processOperation_ManagedEnvironment(ctx context.Context, dbOperation db.Ope
 }
 
 const (
-	// ArgoCDDefaultDestinationInCluster is 'in-cluster' which is the spec destination value that Argo CD recognizes
-	// as indicating that Argo CD should deply to the local cluster (the cluster that Argo CD is installed on).
-	ArgoCDDefaultDestinationInCluster   = "in-cluster"
 	ArgoCDSecretTypeKey                 = "argocd.argoproj.io/secret-type"
 	ArgoCDSecretTypeValue_ClusterSecret = "cluster"
 )
@@ -477,7 +474,7 @@ func processOperation_Application(ctx context.Context, dbOperation db.Operation,
 			app.ObjectMeta.Labels = map[string]string{controllers.ArgoCDApplicationDatabaseIDLabel: dbApplication.Application_id}
 
 			// Before we create the application, make sure that the managed environment exists that the application points to
-			if app.Spec.Destination.Name != ArgoCDDefaultDestinationInCluster {
+			if app.Spec.Destination.Name != argosharedutil.ArgoCDDefaultDestinationInCluster {
 				if err := ensureManagedEnvironmentExists(ctx, *dbApplication, dbQueries, argoCDNamespace, eventClient, log); err != nil {
 					log.Error(err, "unable to ensure that managed environment exists")
 					return true, err
@@ -548,7 +545,7 @@ func processOperation_Application(ctx context.Context, dbOperation db.Operation,
 	}
 
 	// Finally, ensure that the managed-environment secret is still up to date
-	if app.Spec.Destination.Name != ArgoCDDefaultDestinationInCluster {
+	if app.Spec.Destination.Name != argosharedutil.ArgoCDDefaultDestinationInCluster {
 		if err := ensureManagedEnvironmentExists(ctx, *dbApplication, dbQueries, argoCDNamespace, eventClient, log); err != nil {
 			log.Error(err, "unable to ensure that managed environment exists")
 			return true, err
