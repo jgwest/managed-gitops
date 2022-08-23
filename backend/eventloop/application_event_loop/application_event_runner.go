@@ -377,11 +377,16 @@ func handleDeploymentModified(ctx context.Context, newEvent *eventlooptypes.Even
 	adapter := newGitOpsDeploymentAdapter(gitopsDepl, log, newEvent.Client, conditionManager, ctx)
 
 	// Plug any conditions based on the "err" msg
-	if setConditionError := adapter.setGitOpsDeploymentCondition(managedgitopsv1alpha1.GitOpsDeploymentConditionErrorOccurred, managedgitopsv1alpha1.GitopsDeploymentReasonErrorOccurred, err); setConditionError != nil {
+	if setConditionError := adapter.setGitOpsDeploymentCondition(managedgitopsv1alpha1.GitOpsDeploymentConditionErrorOccurred,
+		managedgitopsv1alpha1.GitopsDeploymentReasonErrorOccurred, err); setConditionError != nil {
 		return false, setConditionError
 	}
 
-	return signalledShutdown, err
+	if err == nil {
+		return signalledShutdown, nil
+	} else {
+		return signalledShutdown, err.DevError()
+	}
 
 }
 
