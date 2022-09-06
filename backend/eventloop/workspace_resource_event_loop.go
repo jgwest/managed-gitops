@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	managedgitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend-shared/apis/managed-gitops/v1alpha1"
 	db "github.com/redhat-appstudio/managed-gitops/backend-shared/config/db"
 	sharedutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util"
 	"github.com/redhat-appstudio/managed-gitops/backend/eventloop/eventlooptypes"
@@ -162,17 +161,19 @@ func internalProcessWorkspaceResourceMessage(ctx context.Context, msg workspaceR
 	sharedResourceLoop *shared_resource_loop.SharedResourceEventLoop, workspaceEventLoopInputChannel chan workspaceEventLoopMessage,
 	dbQueries db.DatabaseQueries, log logr.Logger) (bool, error) {
 
+	const retry_true, noRetry_false = true, false
+
 	log.V(sharedutil.LogLevel_Debug).Info("processWorkspaceResource received message: " + string(msg.messageType))
 
 	if msg.apiNamespaceClient == nil {
-		return false, fmt.Errorf("invalid namespace client")
+		return noRetry_false, fmt.Errorf("invalid namespace client")
 	}
 
 	if msg.messageType == workspaceResourceLoopMessageType_processRepositoryCredential {
 
 		req, ok := (msg.payload).(ctrl.Request)
 		if !ok {
-			return false, fmt.Errorf("invalid payload in processWorkspaceResourceMessage")
+			return noRetry_false, fmt.Errorf("invalid payload in processWorkspaceResourceMessage")
 		}
 
 		// Retrieve the namespace that the repository credential is contained within
@@ -185,59 +186,31 @@ func internalProcessWorkspaceResourceMessage(ctx context.Context, msg workspaceR
 		if err := msg.apiNamespaceClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
 
 			if !apierr.IsNotFound(err) {
-				return true, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+				return retry_true, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
 			}
 
 			log.V(sharedutil.LogLevel_Warn).Info("Received a message for a repository credential in a namepace that doesn't exist", "namespace", namespace)
-			return false, nil
+			return noRetry_false, nil
 		}
 
-		repoCreds := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
+		// Request that the shared resource loop handle the GitOpsDeploymentRepositoryCredential resource:
+		// - If the GitOpsDeploymentRepositoryCredential doesn't exist, delete the corsponding database table
+		// - If the GitOpsDeploymentRepositoryCredential does exist, but not in the DB, then create a RepositoryCredential DB entry
+		// - If the GitOpsDeploymentRepositoryCredential does exist, and also in the DB, then compare and change a RepositoryCredential DB entry
+		// Then, in all 3 cases, create an Operation to update the cluster-agent
+		_, err := sharedResourceLoop.ReconcileRepositoryCredential(ctx, msg.apiNamespaceClient, *namespace, req.Name, shared_resource_loop.DefaultK8sClientFactory{})
 
-		if err := msg.apiNamespaceClient.Get(ctx, req.NamespacedName, repoCreds); err != nil {
-
-			if !apierr.IsNotFound(err) {
-				return true, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
-			}
-
-			// The repository credentials necessarily don't exist
-
-			// Find any existing database resources for repository credentials that previously existing with this namespace/name
-			apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
-			if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
-				req.Name, req.Namespace, string(namespace.GetUID()), db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential, &apiCRToDBMappingList); err != nil {
-
-				return true, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
-			}
-
-			for _, item := range apiCRToDBMappingList {
-
-				fmt.Println("STUB:", item)
-
-				// TODO: GITOPSRVCE-96: STUB: Next steps:
-				// - Delete the repository credential from the database
-				// - Create the operation row, pointing to the deleted repository credentials table
-				// - Delete the APICRToDatabaseMapping referenced by 'item'
-
-			}
-
-			// TODO: GITOPSRVCE-96:  STUB - reconcile on the missing repository credentials
-
-			return false, fmt.Errorf("STUB: reconcile on the missing repository credentials")
-
+		if err != nil {
+			return retry_true, fmt.Errorf("unable to reconcile repository credential")
 		}
 
-		// TODO: GITOPSRVCE-96: STUB: If it exists, compare it with what's in the database
-		// - If it doesn't exist in the database, create it
-		// - If it does exist in the database, but the values are different, update it
-
-		return false, fmt.Errorf("STUB: not yet implemented")
+		return noRetry_false, nil
 
 	} else if msg.messageType == workspaceResourceLoopMessageType_processManagedEnvironment {
 
 		evlMessage, ok := (msg.payload).(eventlooptypes.EventLoopMessage)
 		if !ok {
-			return false, fmt.Errorf("invalid payload in processWorkspaceResourceMessage")
+			return noRetry_false, fmt.Errorf("invalid payload in processWorkspaceResourceMessage")
 		}
 		req := evlMessage.Event.Request
 
@@ -251,17 +224,17 @@ func internalProcessWorkspaceResourceMessage(ctx context.Context, msg workspaceR
 		if err := msg.apiNamespaceClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
 
 			if !apierr.IsNotFound(err) {
-				return true, fmt.Errorf("unexpected error in retrieving namespace of managed env CR: %v", err)
+				return retry_true, fmt.Errorf("unexpected error in retrieving namespace of managed env CR: %v", err)
 			}
 
 			log.V(sharedutil.LogLevel_Warn).Info("Received a message for a managed end CR in a namepace that doesn't exist", "namespace", namespace)
-			return false, nil
+			return noRetry_false, nil
 		}
 
 		// Ask the shared resource loop to ensure the managed environment is reconciled
 		_, err := sharedResourceLoop.ReconcileSharedManagedEnv(ctx, msg.apiNamespaceClient, *namespace, req.Name, req.Namespace, false, shared_resource_loop.DefaultK8sClientFactory{})
 		if err != nil {
-			return true, fmt.Errorf("unable to reconcile shared managed env: %v", err)
+			return retry_true, fmt.Errorf("unable to reconcile shared managed env: %v", err)
 		}
 
 		// Once we finish processing the managed environment, send it back to the workspace event loop, so it can be passed to GitOpsDeployments.
@@ -273,10 +246,10 @@ func internalProcessWorkspaceResourceMessage(ctx context.Context, msg workspaceR
 			}
 		}()
 
-		return false, nil
+		return noRetry_false, nil
 
 	} else {
-		return false, fmt.Errorf("SEVERE: unrecognized sharedResourceLoopMessageType: %s " + string(msg.messageType))
+		return noRetry_false, fmt.Errorf("SEVERE: unrecognized sharedResourceLoopMessageType: %s " + string(msg.messageType))
 	}
 
 }

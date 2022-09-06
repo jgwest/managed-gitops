@@ -5,11 +5,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	managedgitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend-shared/apis/managed-gitops/v1alpha1"
 	db "github.com/redhat-appstudio/managed-gitops/backend-shared/config/db"
 	dbutil "github.com/redhat-appstudio/managed-gitops/backend-shared/config/db/util"
 	sharedutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -28,6 +31,7 @@ import (
 // - clusteraccess
 // - clusteruser
 // - gitopsengineinstance (for now)
+// - repositorycredential
 //
 // Ultimately the goal of this file is to avoid this issue:
 // - In the same moment of time, both these actions happen simultaneously:
@@ -158,6 +162,44 @@ func (srEventLoop *SharedResourceEventLoop) ReconcileSharedManagedEnv(ctx contex
 
 }
 
+func (srEventLoop *SharedResourceEventLoop) ReconcileRepositoryCredential(ctx context.Context,
+	workspaceClient client.Client, workspaceNamespace corev1.Namespace,
+	repositoryCredentialCRName string, k8sClientFactory SRLK8sClientFactory) (*db.RepositoryCredentials, error) {
+
+	request := sharedResourceLoopMessage_reconcileRepositoryCredentialRequest{
+		repositoryCredentialCRName:      repositoryCredentialCRName,
+		repositoryCredentialCRNamespace: workspaceNamespace.Name,
+		k8sClientFactory:                k8sClientFactory,
+	}
+
+	responseChannel := make(chan any)
+
+	msg := sharedResourceLoopMessage{
+		workspaceClient:    workspaceClient,
+		workspaceNamespace: workspaceNamespace,
+		messageType:        sharedResourceLoopMessage_reconcileRepositoryCredential,
+		responseChannel:    responseChannel,
+		payload:            request,
+	}
+
+	srEventLoop.inputChannel <- msg
+
+	var rawResponse any
+
+	select {
+	case rawResponse = <-responseChannel:
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context cancelled in ReconcileRepositoryCredential")
+	}
+
+	response, ok := rawResponse.(sharedResourceLoopMessage_reconcileRepositoryCredentialResponse)
+	if !ok {
+		return nil, fmt.Errorf("SEVERE: unexpected response type")
+	}
+	return response.repositoryCredential, response.err
+
+}
+
 func NewSharedResourceLoop() *SharedResourceEventLoop {
 
 	sharedResourceEventLoop := &SharedResourceEventLoop{
@@ -173,6 +215,7 @@ type sharedResourceLoopMessageType string
 
 const (
 	sharedResourceLoopMessage_getOrCreateSharedManagedEnv          sharedResourceLoopMessageType = "getOrCreateSharedManagedEnv"
+	sharedResourceLoopMessage_reconcileRepositoryCredential        sharedResourceLoopMessageType = "reconcileRepositoryCredential"
 	sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUID sharedResourceLoopMessageType = "getOrCreateClusterUserByNamespaceUID"
 	sharedResourceLoopMessage_getGitopsEngineInstanceById          sharedResourceLoopMessageType = "getGitopsEngineInstanceById"
 )
@@ -203,6 +246,17 @@ type sharedResourceLoopMessage_getOrCreateSharedResourceManagedEnvRequest struct
 type sharedResourceLoopMessage_getOrCreateSharedResourcesResponse struct {
 	err               error
 	responseContainer SharedResourceManagedEnvContainer
+}
+
+type sharedResourceLoopMessage_reconcileRepositoryCredentialRequest struct {
+	repositoryCredentialCRName      string
+	repositoryCredentialCRNamespace string
+	k8sClientFactory                SRLK8sClientFactory
+}
+
+type sharedResourceLoopMessage_reconcileRepositoryCredentialResponse struct {
+	err                  error
+	repositoryCredential *db.RepositoryCredentials
 }
 
 func newSharedResourceManagedEnvContainer() SharedResourceManagedEnvContainer {
@@ -338,10 +392,101 @@ func processSharedResourceMessage(ctx context.Context, msg sharedResourceLoopMes
 		go func() {
 			msg.responseChannel <- response
 		}()
+	} else if msg.messageType == sharedResourceLoopMessage_reconcileRepositoryCredential {
+
+		var err error
+		var repositoryCredential *db.RepositoryCredentials
+
+		payload, ok := (msg.payload).(sharedResourceLoopMessage_reconcileRepositoryCredentialRequest)
+		if ok {
+
+			repositoryCredential, err = internalProcessMessage_ReconcileRepositoryCredential(ctx,
+				payload.repositoryCredentialCRName, msg.workspaceNamespace, msg.workspaceClient, payload.k8sClientFactory, dbQueries, log)
+
+		} else {
+			err = fmt.Errorf("SEVERE - unexpected cast in internalSharedResourceEventLoop")
+			log.Error(err, err.Error())
+		}
+
+		response := sharedResourceLoopMessage_reconcileRepositoryCredentialResponse{
+			repositoryCredential: repositoryCredential,
+			err:                  err,
+		}
+
+		// Reply on a separate goroutine so cancelled callers don't block the event loop
+		go func() {
+			msg.responseChannel <- response
+		}()
 
 	} else {
 		log.Error(nil, "SEVERE: unrecognized sharedResourceLoopMessageType: "+string(msg.messageType))
 	}
+
+}
+
+func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
+	repositoryCredentialCRName string,
+	repositoryCredentialCRNamespace corev1.Namespace,
+	apiNamespaceClient client.Client,
+	k8sClientFactory SRLK8sClientFactory,
+	dbQueries db.DatabaseQueries, log logr.Logger) (*db.RepositoryCredentials, error) {
+
+	repoCreds := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
+
+	// 2) Attempt to retrieve the GitOpsDeploymentRepositoryCredential in the CR
+	if err := apiNamespaceClient.Get(ctx,
+		types.NamespacedName{Namespace: repositoryCredentialCRNamespace.Name, Name: repositoryCredentialCRName}, repoCreds); err != nil {
+
+		if !apierr.IsNotFound(err) {
+			return nil, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+		}
+
+		// 2a) Find any existing database resources for repository credentials that previously existing with this namespace/name
+		apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
+		if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+			repositoryCredentialCRName, repositoryCredentialCRNamespace.Name, string(repositoryCredentialCRNamespace.GetUID()),
+			db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential, &apiCRToDBMappingList); err != nil {
+
+			return nil, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
+		}
+
+		for _, item := range apiCRToDBMappingList {
+
+			// repositoryCredentialPrimaryKey := item.DBRelationKey
+
+			fmt.Println("STUB:", item)
+
+			// TODO: GITOPSRVCE-96: STUB: Next steps:
+			// - Delete the repository credential from the database
+			// - Create the operation row, pointing to the deleted repository credentials table
+			// - Delete the APICRToDatabaseMapping referenced by 'item'
+
+		}
+
+		// Success!
+		return nil, nil
+
+	}
+
+	clusterUser, _, err := internalGetOrCreateClusterUserByNamespaceUID(ctx, string(repositoryCredentialCRNamespace.UID), dbQueries, log)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve cluster user in processMessage, '%s': %v", string(repositoryCredentialCRNamespace.UID), err)
+	}
+
+	// TODO: GITOPSRVCE-96: We should probably rename this to internalDetermineGitOpsEngineInstance, given how it is being used :P
+	gitopsEngineInstance, _, gitopsEngineCluster, err := internalDetermineGitOpsEngineInstanceForNewApplication(ctx, *clusterUser, apiNamespaceClient, dbQueries, log)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve gitops engine instance")
+	}
+
+	fmt.Println("STUB", gitopsEngineInstance, gitopsEngineCluster)
+
+	// TODO: GITOPSRVCE-96: STUB:
+	// - If the GitOpsDeploymentRepositoryCredential does exist, but not in the DB, then create a RepositoryCredential DB entry
+	// - If the GitOpsDeploymentRepositoryCredential does exist, and also in the DB, then compare and change the RepositoryCredential DB entry
+	// Then, in both cases, create an Operation to update the cluster-agent
+
+	return nil, fmt.Errorf("STUB!")
 
 }
 
@@ -403,7 +548,7 @@ func internalProcessMessage_GetOrCreateSharedResources(ctx context.Context, work
 		return SharedResourceManagedEnvContainer{}, fmt.Errorf("unable to get or created managed env on deployment modified event: %v", err)
 	}
 
-	engineInstance, isNewInstance, gitopsEngineCluster, err := internalDetermineGitOpsEngineInstanceForNewApplication(ctx, *clusterUser, *managedEnv, workspaceClient, dbQueries, log)
+	engineInstance, isNewInstance, gitopsEngineCluster, err := internalDetermineGitOpsEngineInstanceForNewApplication(ctx, *clusterUser, workspaceClient, dbQueries, log)
 	if err != nil {
 		return SharedResourceManagedEnvContainer{}, fmt.Errorf("unable to determine gitops engine instance: %v", err)
 	}
@@ -445,7 +590,7 @@ func internalProcessMessage_GetOrCreateSharedResources(ctx context.Context, work
 // The bool return value is 'true' if GitOpsEngineInstance is created; 'false' if it already exists in DB or in case of failure.
 //
 // This logic would be improved by https://issues.redhat.com/browse/GITOPSRVCE-73 (and others)
-func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context, user db.ClusterUser, managedEnv db.ManagedEnvironment,
+func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context, user db.ClusterUser,
 	k8sClient client.Client, dbq db.DatabaseQueries, log logr.Logger) (*db.GitopsEngineInstance, bool, *db.GitopsEngineCluster, error) {
 
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dbutil.GetGitOpsEngineSingleInstanceNamespace(), Namespace: dbutil.GetGitOpsEngineSingleInstanceNamespace()}}
@@ -467,7 +612,7 @@ func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context,
 	//
 	// algorithm input:
 	// - user
-	// - managed environment
+	// - API namespace (this assumes that all gitopsdeployment* APIs in a single namespace will share the same Argo CD instance)
 	//
 	// output:
 	// - gitops engine instance
