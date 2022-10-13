@@ -257,7 +257,7 @@ func GetOrCreateGitopsEngineInstanceByInstanceNamespaceUID(ctx context.Context,
 			return nil, false, nil, fmt.Errorf("unable to create mapping when neither existed: %v", err)
 		}
 
-		log.Info("Created KubernetesResourceToDBResourceMapping with KubernetesResourceUID: "+ expectedDBResourceMapping.KubernetesResourceUID, expectedDBResourceMapping.GetAsLogKeyValues()...)
+		log.Info("Created KubernetesResourceToDBResourceMapping with KubernetesResourceUID: "+expectedDBResourceMapping.KubernetesResourceUID, expectedDBResourceMapping.GetAsLogKeyValues()...)
 
 		return gitopsEngineInstance, true, gitopsEngineCluster, nil
 
@@ -472,7 +472,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 			return nil, false, fmt.Errorf("unable to create mapping when dbResourceMapping didn't exist: %v", err)
 		}
 
-		log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+ expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
+		log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
 
 		return gitopsEngineCluster, true, nil
 
