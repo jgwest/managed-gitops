@@ -308,10 +308,10 @@ type sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUIDResponse stru
 func internalSharedResourceEventLoop(inputChan chan sharedResourceLoopMessage) {
 
 	ctx := context.Background()
-	log := log.FromContext(ctx)
+	l := log.FromContext(ctx)
 	dbQueries, err := db.NewSharedProductionPostgresDBQueries(false)
 	if err != nil {
-		log.Error(err, "SEVERE: internalSharedResourceEventLoop exiting before startup")
+		l.Error(err, "SEVERE: internalSharedResourceEventLoop exiting before startup")
 		return
 	}
 
@@ -323,7 +323,7 @@ func internalSharedResourceEventLoop(inputChan chan sharedResourceLoopMessage) {
 			return nil
 		})
 		if err != nil {
-			log.Error(err, "unexpected error from processMessage in internalSharedResourceEventLoop")
+			l.Error(err, "unexpected error from processMessage in internalSharedResourceEventLoop")
 		}
 	}
 }
@@ -590,24 +590,22 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 	ns := repositoryCredentialCRNamespace.Name
 	cr := repositoryCredentialCRName
 
-	// ----
 	clusterUser, _, err := internalGetOrCreateClusterUserByNamespaceUID(ctx, string(repositoryCredentialCRNamespace.UID), dbQueries, l)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve cluster user in processMessage, '%s': %v", string(repositoryCredentialCRNamespace.UID), err)
+		vErr := fmt.Errorf("unable to retrieve cluster user while processing GitOpsRepositoryCredentials: '%s' in namespace: '%s': %v", repositoryCredentialCRName, string(repositoryCredentialCRNamespace.UID), err)
+		return nil, vErr
 	}
-	// ----
+
 	gitopsEngineInstance, _, _, err := internalDetermineGitOpsEngineInstanceForNewApplication(ctx, *clusterUser, apiNamespaceClient, dbQueries, l)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve gitops engine instance")
+		return nil, fmt.Errorf("unable to retrieve cluster user while processing GitOpsRepositoryCredentials: '%s' in namespace: '%s': Error: %v", repositoryCredentialCRName, string(repositoryCredentialCRNamespace.UID), err)
 	}
-	// ----
 
 	// Allocate a struct pointer in memory for receiving the kubernetes CR object
 	repoCreds := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
 
 	// 2) Attempt to get the CR
 	if err := apiNamespaceClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cr}, repoCreds); err != nil {
-
 		// If the CR is not found, then we can assume it was deleted
 		if apierr.IsNotFound(err) {
 			if repoCreds == nil {
@@ -625,7 +623,8 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 
 		// Something went wrong, retry
 		l.Error(err, errGenericCR, "CR Name", cr, "Namespace", ns)
-		return nil, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+		vErr := fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+		return nil, vErr
 	}
 
 	// 3. If CR exists in the cluster, check the DB to see if it exists there
@@ -638,31 +637,62 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		},
 	}
 
+	privateURL = repoCreds.Spec.Repository
+
 	if err := apiNamespaceClient.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
 		if apierr.IsNotFound(err) {
-			l.Info("secret not found", "secret", repoCreds.Spec.Secret, "namespace", ns)
-			return nil, fmt.Errorf("secret not found: %v", err)
+			// l.Info("secret not found", "secret", repoCreds.Spec.Secret, "namespace", ns)
+			err2 := fmt.Errorf("secret not found: %v", err)
+			return nil, err2
 		} else {
 			// Something went wrong, retry
-			l.Error(err, "error retrieving secret", "secret", repoCreds.Spec.Secret, "namespace", ns)
-			return nil, fmt.Errorf("error retrieving secret: %v", err)
+			// l.Error(err, "error retrieving secret", "secret", repoCreds.Spec.Secret, "namespace", ns)
+			fmt.Println("error retrieving secret", "secret", repoCreds.Spec.Secret, "namespace", ns)
+			err2 := fmt.Errorf("error retrieving secret: %v", err)
+			return nil, err2
 		}
 	} else {
+		fmt.Println("No Error Getting the secret")
 		// Secret exists, so get its data
-		privateURL = string(secret.Data["url"]) // is this supposed to the same as the CR's Repository?
+		// privateURL = string(secret.Data["url"]) // is this supposed to the same as the CR's Repository?
 		authUsername = string(secret.Data["username"])
 		authPassword = string(secret.Data["password"])
 		authSSHKey = string(secret.Data["sshPrivateKey"])
 		secretObj = secret.Name
+		fmt.Println("privateURL", privateURL)
+		fmt.Println("authUsername", authUsername)
+		fmt.Println("authPassword", authPassword)
+		fmt.Println("authSSHKey", authSSHKey)
+		fmt.Println("secretObj Name", secretObj)
 	}
 
-	dbRepoCred, err := dbQueries.GetRepositoryCredentialsByID(ctx, string(repoCreds.UID))
-	if err != nil {
+	fmt.Println("Before attempting to get the repoCreds from the DB")
+	fmt.Println("repoCreds.Name", repoCreds.Name)
 
-		if db.IsResultNotFoundError(err) {
+	// The CR Name should be the DB ID as well
+	dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repoCreds.Name)
+	fmt.Println("After attempting to get the repoCreds from the DB")
+	fmt.Println("dbRepoCred", dbRepoCred)
+	if err2 != nil {
+		fmt.Println("Error getting the repoCreds from the DB")
+
+		if db.IsResultNotFoundError(err2) {
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println("Error getting the repoCreds from the DB: Result Not Found")
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
+			fmt.Println()
 			// If the CR exists in the cluster but not in the DB, then create it in the DB and create an Operation.
-			err = dbQueries.CreateRepositoryCredentials(ctx, &db.RepositoryCredentials{
-				RepositoryCredentialsID: string(repoCreds.UID),
+			dbRepoCred = db.RepositoryCredentials{
+				RepositoryCredentialsID: repoCreds.Name,
 				UserID:                  clusterUser.Clusteruser_id, // comply with the constraint 'fk_clusteruser_id'
 				PrivateURL:              privateURL,                 // or repoCreds.Spec.Repository?
 				AuthUsername:            authUsername,
@@ -670,107 +700,75 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 				AuthSSHKey:              authSSHKey,
 				SecretObj:               secretObj,
 				EngineClusterID:         gitopsEngineInstance.Gitopsengineinstance_id, // comply with the constraint 'fk_gitopsengineinstance_id',
-			})
-			if err != nil {
-				l.Error(err, errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
-				return nil, fmt.Errorf("unable to create repository credential in the database: %v", err)
 			}
 
-			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+			err = dbQueries.CreateRepositoryCredentials(ctx, &dbRepoCred)
+
+			fmt.Println("EngineClusterID", gitopsEngineInstance.Gitopsengineinstance_id)
+			fmt.Println("EngineClusterID", dbRepoCred.EngineClusterID)
+
 			if err != nil {
+				// l.Error(err, errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
+				err2 := fmt.Errorf("unable to create repository credential in the database: %v", err)
+				fmt.Println(err2)
+				return nil, err2
+			}
+			fmt.Println("No Error CREATING the repoCreds from the DB")
+
+			fmt.Println("Before creating the operation")
+			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+			fmt.Println("After creating the operation")
+			if err != nil {
+				fmt.Println("Error creating the operation", err)
 				return nil, err
 			}
-		} else {
-			l.Error(err, "error retrieving repository credentials from DB", "repositoryCredentialsID", repoCreds.UID)
-			return nil, fmt.Errorf("error retrieving repository credentials from DB: %v", err)
+
+			fmt.Println("No Error CREATING the operation")
+			return &dbRepoCred, nil
 		}
-	} else {
-		// If the CR exists in the cluster and in the DB, then check if the data is the same and create an Operation
-		isUpdateNeeded := compareClusterResourceWithDatabaseRow(*repoCreds, &dbRepoCred, l)
-		if isUpdateNeeded {
-			l.Info("Syncing with database...")
-			if err = dbQueries.UpdateRepositoryCredentials(ctx, &dbRepoCred); err != nil {
-				l.Error(err, errUpdateDBRepoCred)
-				return nil, err
-			}
+		// l.Error(err, "error retrieving repository credentials from DB", "repositoryCredentialsID", repoCreds.UID)
+		err3 := fmt.Errorf("error retrieving repository credentials from DB: %v", err2)
+		fmt.Println(err3)
+		return nil, err3
 
-			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
-			if err != nil {
+	} else {
+		fmt.Println("No Error Getting the repoCreds from the DB")
+		// If the CR exists in the cluster and in the DB, then check if the data is the same and create an Operation
+		fmt.Println("Before Comparing the RepoCreds")
+		isUpdateNeeded := compareClusterResourceWithDatabaseRow(*repoCreds, &dbRepoCred, l)
+		fmt.Println("After Comparing the RepoCreds")
+		if isUpdateNeeded {
+			fmt.Println("Update is needed. Syncing the database ...")
+			// l.Info("Syncing with database...")
+			if err = dbQueries.UpdateRepositoryCredentials(ctx, &dbRepoCred); err != nil {
+				// l.Error(err, errUpdateDBRepoCred)
+				fmt.Println("Error updating the repoCreds in the DB")
 				return nil, err
 			}
+			fmt.Println("No Error Updating the repoCreds in the DB")
+
+			fmt.Println("Before creating the operation")
+			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+			fmt.Println("After creating the operation")
+			if err != nil {
+				fmt.Println("Error creating the operation", err)
+				return nil, err
+			}
+			fmt.Println("No Error CREATING the operation")
+		} else {
+			fmt.Println("No Update Needed")
+			return &dbRepoCred, nil
 		}
 	}
-
-	//// This is a best effort operation, so we don't return an error if it fails.
-	//
-	//// 2a) Find any existing database resources for repository credentials that previously existing with this namespace/name
-	//var apiCRToDBMappingList []db.APICRToDatabaseMapping
-	//if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
-	//	cr, ns, string(repositoryCredentialCRNamespace.GetUID()),
-	//	db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential, &apiCRToDBMappingList); err != nil {
-	//
-	//	return nil, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
-	//}
-	//
-	//for _, item := range apiCRToDBMappingList {
-	//
-	//	fmt.Println("Type", item.APIResourceType)
-	//	fmt.Println("UID", item.APIResourceUID)
-	//	fmt.Println("Namespace", item.APIResourceNamespace)
-	//	fmt.Println("Name", item.APIResourceName)
-	//	fmt.Println("DB Relation Type", item.DBRelationType)
-	//	fmt.Println("DB Relation Key", item.DBRelationKey)
-	//
-	//	fetchRow := db.APICRToDatabaseMapping{
-	//		APIResourceType: item.APIResourceType,
-	//		APIResourceUID:  item.APIResourceUID,
-	//		DBRelationKey:   item.DBRelationKey,
-	//		DBRelationType:  item.DBRelationType,
-	//	}
-	//
-	//	if err = dbQueries.GetDatabaseMappingForAPICR(ctx, &fetchRow); err != nil {
-	//		log.Error(err, "unable to fetch database mapping for APICR")
-	//		continue
-	//	}
-	//
-	//	// 2b) Delete the corresponding database resources
-	//	rowsAffected, err := dbQueries.DeleteRepositoryCredentialsByID(ctx, fetchRow.DBRelationKey)
-	//	if err != nil {
-	//		// Warn, but continue
-	//		log.V(sharedutil.LogLevel_Warn).Info("Unable to delete RepositoryCredentials DB Row", "item", item.APIResourceUID)
-	//	}
-	//	if rowsAffected != 1 {
-	//		// Warn, but continue.
-	//		log.V(sharedutil.LogLevel_Warn).Info("unexpected number of rows deleted for RepositoryCredentials", "mapping", item.APIResourceUID)
-	//	}
-	//
-	//	// repositoryCredentialPrimaryKey := item.DBRelationKey
-	//
-	//	fmt.Println("STUB:", item)
-
-	// TODO: GITOPSRVCE-96: STUB: Next steps:
-	// - Delete the repository credential from the database
-	// - Create the operation row, pointing to the deleted repository credentials table
-	// - Delete the APICRToDatabaseMapping referenced by 'item'
-
-	// Success!
-	// return nil, nil
-
-	// }
-
-	// TODO: GITOPSRVCE-96: We should probably rename this to internalDetermineGitOpsEngineInstance, given how it is being used :P
-
-	// TODO: GITOPSRVCE-96: STUB:
-	// - If the GitOpsDeploymentRepositoryCredential does exist, but not in the DB, then create a RepositoryCredential DB entry
-	// - If the GitOpsDeploymentRepositoryCredential does exist, and also in the DB, then compare and change the RepositoryCredential DB entry
-	// Then, in both cases, create an Operation to update the cluster-agent
-
-	return nil, fmt.Errorf("STUB!")
-
+	return &dbRepoCred, nil
 }
 
 func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.RepositoryCredentials, clusterUser *db.ClusterUser, ns string, dbQueries db.DatabaseQueries, apiNamespaceClient client.Client) error {
-	l.Info("Creating operation...")
+	// l.Info("Creating operation...")
+
+	fmt.Println("Clusteruserid:", clusterUser.Clusteruser_id)
+	fmt.Println("RepositoryCredentialsID:", dbRepoCred.RepositoryCredentialsID)
+
 	dbOperationInput := db.Operation{
 		Instance_id:             dbRepoCred.EngineClusterID,
 		Resource_id:             dbRepoCred.RepositoryCredentialsID,
@@ -778,29 +776,60 @@ func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.R
 		State:                   db.OperationState_Waiting,
 		Operation_owner_user_id: clusterUser.Clusteruser_id,
 	}
+	fmt.Println("-----------------")
+	fmt.Println("FROM THE CODE")
+	fmt.Println("dbOperationInput", dbOperationInput)
+	fmt.Println("Instance_id", dbOperationInput.Instance_id)
+	fmt.Println("Resource_id", dbOperationInput.Resource_id)
+	fmt.Println("Resource_type", dbOperationInput.Resource_type)
+	fmt.Println("State", dbOperationInput.State)
+	fmt.Println("Operation_owner_user_id", dbOperationInput.Operation_owner_user_id)
+	fmt.Println("-----------------")
 
-	operationCR, operationDB, err := operations.CreateOperation(ctx, false, dbOperationInput, clusterUser.Clusteruser_id, ns, dbQueries, apiNamespaceClient, l)
+	fmt.Println("Literally one step before creating the operation")
+	operationCR, operationDB, err := operations.CreateOperation(ctx, false, dbOperationInput, clusterUser.Clusteruser_id, ns, dbQueries, apiNamespaceClient, log.Log)
 	if err != nil {
-		return fmt.Errorf("unable to create operation: %v", err)
+		fmt.Println("Error creating the operation")
+		err2 := fmt.Errorf("unable to create operation: %v", err)
+		return err2
 	}
 
-	l.Info("operationCR", "operationCR", operationCR)
-	l.Info("operationDB", "operationDB", operationDB)
+	fmt.Println("Operation CR", operationCR)
+	fmt.Println("Operation DB", operationDB)
+
+	fmt.Println("=======================================")
+	fmt.Println("RepositoryCredentialsID:", dbRepoCred.RepositoryCredentialsID)
+	fmt.Println("Operation CR Spec OperationID", operationCR.Spec.OperationID)
+	fmt.Println("Operation DB Resource_id", operationDB.Resource_id)
+	fmt.Println("=======================================")
+
+	err = dbQueries.GetOperationById(ctx, operationDB)
+	if err != nil {
+		fmt.Println("Failed to fetch the operaiton, Error:", err)
+	} else {
+		fmt.Println("Operation Resource ID", operationDB.Resource_id)
+	}
+
+	// l.Info("operationCR", "operationCR", operationCR)
+	// l.Info("operationDB", "operationDB", operationDB)
 
 	return nil
 }
 
 func compareClusterResourceWithDatabaseRow(cr managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential, dbr *db.RepositoryCredentials, l logr.Logger) bool {
+	fmt.Println("Comparing starts here")
 	var isSecretUpdateNeeded bool
 	if cr.Spec.Secret != dbr.SecretObj {
-		l.Info("Secret name changed", "old", dbr.SecretObj, "new", cr.Spec.Secret)
+		fmt.Println("Secrets are different")
+		// l.Info("Secret name changed", "old", dbr.SecretObj, "new", cr.Spec.Secret)
 		dbr.SecretObj = cr.Spec.Secret
 		isSecretUpdateNeeded = true
 	}
 
 	var isRepoUpdateNeeded bool
 	if cr.Spec.Repository != dbr.PrivateURL {
-		l.Info("Repository URL changed", "old", dbr.PrivateURL, "new", cr.Spec.Repository)
+		fmt.Println("Repo is different")
+		// l.Info("Repository URL changed", "old", dbr.PrivateURL, "new", cr.Spec.Repository)
 		dbr.PrivateURL = cr.Spec.Repository
 		isSecretUpdateNeeded = true
 	}
@@ -927,7 +956,7 @@ func internalProcessMessage_GetOrCreateSharedResources(ctx context.Context, work
 //
 // This logic would be improved by https://issues.redhat.com/browse/GITOPSRVCE-73 (and others)
 func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context, user db.ClusterUser,
-	k8sClient client.Client, dbq db.DatabaseQueries, log logr.Logger) (*db.GitopsEngineInstance, bool, *db.GitopsEngineCluster, error) {
+	k8sClient client.Client, dbq db.DatabaseQueries, l logr.Logger) (*db.GitopsEngineInstance, bool, *db.GitopsEngineCluster, error) {
 
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dbutil.GetGitOpsEngineSingleInstanceNamespace(), Namespace: dbutil.GetGitOpsEngineSingleInstanceNamespace()}}
 	if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
@@ -939,7 +968,7 @@ func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context,
 		return nil, false, nil, fmt.Errorf("unable to retrieve kube-system namespace in determineGitOpsEngineInstanceForNewApplication: %v", err)
 	}
 
-	gitopsEngineInstance, isNewInstance, gitopsEngineCluster, err := dbutil.GetOrCreateGitopsEngineInstanceByInstanceNamespaceUID(ctx, *namespace, string(kubeSystemNamespace.UID), dbq, log)
+	gitopsEngineInstance, isNewInstance, gitopsEngineCluster, err := dbutil.GetOrCreateGitopsEngineInstanceByInstanceNamespaceUID(ctx, *namespace, string(kubeSystemNamespace.UID), dbq, l)
 	if err != nil {
 		return nil, false, nil, fmt.Errorf("unable to get or create engine instance for new application: %v", err)
 	}
@@ -955,6 +984,10 @@ func internalDetermineGitOpsEngineInstanceForNewApplication(ctx context.Context,
 	//
 	// In a way that ensures that applications are balanced between instances.
 	// Preliminary thoughts: https://docs.google.com/document/d/15E8d5frNuTFEdCHMlNSk0LQr6DI7BtiypxIC2AnW-OQ/edit#
+
+	fmt.Println("gitopsEngineInstance", gitopsEngineInstance)
+	fmt.Println("gitopsEngineCluster", gitopsEngineCluster)
+	fmt.Println("isNewInstance", isNewInstance)
 
 	return gitopsEngineInstance, isNewInstance, gitopsEngineCluster, nil
 }

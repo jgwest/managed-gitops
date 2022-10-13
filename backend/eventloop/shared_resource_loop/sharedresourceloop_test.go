@@ -2,9 +2,11 @@ package shared_resource_loop
 
 import (
 	"context"
-
+	"fmt"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -269,5 +271,234 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 				},
 			}
 		})
+
+		FIt("Should fetch a GitOpsDeploymentRepositoryCredential.", func() {
+			sharedResourceEventLoop := &SharedResourceEventLoop{inputChannel: make(chan sharedResourceLoopMessage)}
+
+			go internalSharedResourceEventLoop(sharedResourceEventLoop.inputChannel)
+
+			// Create new engine instance which will be used by "GetGitopsEngineInstanceById" fucntion
+			dbq, err := db.NewUnsafePostgresDBQueries(true, true)
+			Expect(err).To(BeNil())
+
+			defer dbq.CloseDatabase()
+
+			clusterCredentials := db.ClusterCredentials{
+				Clustercredentials_cred_id: string(uuid.NewUUID()),
+			}
+
+			gitopsEngineCluster := db.GitopsEngineCluster{
+				Gitopsenginecluster_id: string(uuid.NewUUID()),
+				Clustercredentials_id:  clusterCredentials.Clustercredentials_cred_id,
+			}
+
+			gitopsEngineInstance := db.GitopsEngineInstance{
+				Gitopsengineinstance_id: string(uuid.NewUUID()),
+				Namespace_name:          namespace.Name,
+				Namespace_uid:           string(namespace.UID),
+				EngineCluster_id:        gitopsEngineCluster.Gitopsenginecluster_id,
+			}
+
+			err = dbq.CreateClusterCredentials(ctx, &clusterCredentials)
+			Expect(err).To(BeNil())
+
+			err = dbq.CreateGitopsEngineCluster(ctx, &gitopsEngineCluster)
+			Expect(err).To(BeNil())
+
+			err = dbq.CreateGitopsEngineInstance(ctx, &gitopsEngineInstance)
+			Expect(err).To(BeNil())
+
+			// Fetch the same engineInstance by ID
+			engineInstanceNew, err := sharedResourceEventLoop.GetGitopsEngineInstanceById(ctx,
+				gitopsEngineInstance.Gitopsengineinstance_id, k8sClient, *namespace, log)
+
+			Expect(err).To(BeNil())
+			Expect(engineInstanceNew.EngineCluster_id).NotTo(BeNil())
+
+			// At first assuming there are no existing users, hence creating new.
+			usrOld,
+				isNewUser,
+				err := sharedResourceEventLoop.GetOrCreateClusterUserByNamespaceUID(ctx, k8sClient, *namespace, log)
+
+			Expect(err).To(BeNil())
+			Expect(usrOld).NotTo(BeNil())
+			Expect(isNewUser).To(BeTrue())
+
+			// User is created in previous call, then same user should be returned instead of creating new.
+			usrNew,
+				isNewUser,
+				err := sharedResourceEventLoop.GetOrCreateClusterUserByNamespaceUID(ctx, k8sClient, *namespace, log)
+
+			Expect(err).To(BeNil())
+			Expect(usrNew).NotTo(BeNil())
+			Expect(isNewUser).To(BeFalse())
+			Expect(usrOld).To(Equal(usrNew))
+
+			// To be used by AfterEach to clean up the resources created by test
+			resourcesToBeDeleted = testResources{
+				Gitopsengineinstance_id: gitopsEngineInstance.Gitopsengineinstance_id,
+				EngineCluster_id:        gitopsEngineInstance.EngineCluster_id,
+				// Clusteruser_id:          usrNew.Clusteruser_id,
+				Clustercredentials_id: []string{
+					clusterCredentials.Clustercredentials_cred_id,
+				},
+			}
+
+			// Create new GitOpsDeploymentRepositoryCredential
+			cr := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gitopsdeploymenrepositorycredential",
+					Namespace: gitopsEngineInstance.Namespace_name,
+				},
+				Spec: managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredentialSpec{
+					Repository: "https://fakegithub.com/test/test-repository",
+					Secret:     "test-secret",
+				}}
+
+			err = k8sClient.Create(ctx, cr)
+			Expect(err).To(BeNil())
+			fmt.Println("GitOpsDeploymentRepositoryCredential created")
+
+			// Fetch the GitOpsDeploymentRepositoryCredential created
+			cred := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cred)
+			Expect(err).To(BeNil())
+			fmt.Println("GitOpsDeploymentRepositoryCredential fetched")
+			fmt.Println("------------------")
+			fmt.Println("Name:", cred.Name)
+			fmt.Println("Namespace:", cred.Namespace)
+			fmt.Println("Repository:", cred.Spec.Repository)
+			fmt.Println("Secret:", cred.Spec.Secret)
+			fmt.Println("------------------")
+
+			/* Output:
+			------------------
+			Name: test-gitopsdeploymenrepositorycredential
+			Namespace: my-user
+			Repository: https://fakegithub.com/test/test-repository
+			Secret: test-secret
+			------------------
+			*/
+
+			var repositoryCredentialCRNamespace v1.Namespace
+			repositoryCredentialCRNamespace.Name = gitopsEngineInstance.Namespace_name
+			repositoryCredentialCRNamespace.UID = types.UID(gitopsEngineInstance.Namespace_uid)
+
+			var k8sClientFactory SRLK8sClientFactory
+			var l logr.Logger
+
+			dbRepoCred, err := internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
+			fmt.Println("dbRepoCred: ", dbRepoCred)
+
+			// Negative test (there is no Secret)
+			Expect(err).NotTo(BeNil())
+			Expect(dbRepoCred).To(BeNil())
+			fmt.Println("------- FIRST TEST PASSED -------")
+
+			// Create new Secret
+			secret := &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: gitopsEngineInstance.Namespace_name,
+				},
+				Data: map[string][]byte{
+					"username": []byte("test-username"),
+					"password": []byte("test-password"),
+				},
+			}
+
+			err = k8sClient.Create(ctx, secret)
+			Expect(err).To(BeNil())
+			fmt.Println("Secret created")
+
+			// Create again the CR, there no DB entry for the CR, so it will create an operation
+			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
+
+			Expect(err).To(BeNil())
+			Expect(dbRepoCred).NotTo(BeNil())
+			fmt.Println(" --- checking Operation DB status ---")
+			var operationDB db.Operation
+			operationDB.Resource_id = dbRepoCred.RepositoryCredentialsID
+			fmt.Println("operationDB.Resource_id: ", operationDB.Resource_id)
+
+			// Get all Operation CRs using k8sClient
+			operationList := &managedgitopsv1alpha1.OperationList{}
+			err = k8sClient.List(ctx, operationList)
+			Expect(err).To(BeNil())
+
+			// Loop through all Operation CRs and check their OperationID Spec field
+			fmt.Println(" --- checking Operation CRs ---")
+			fmt.Println("The BIG LIST of Operations:")
+			if len(operationList.Items) == 1 {
+				fmt.Println("There is only one Operation CR")
+				operationDB.Operation_id = operationList.Items[0].Spec.OperationID
+			} else {
+				fmt.Println("There are", len(operationList.Items), "Operation CRs")
+			}
+
+			err = dbq.GetOperationById(ctx, &operationDB)
+			fmt.Println("-----------------")
+			fmt.Println("FROM THE TEST")
+			fmt.Println("dbOperationInput", operationDB)
+			fmt.Println("Instance_id", operationDB.Instance_id)
+			fmt.Println("Resource_id", operationDB.Resource_id)
+			fmt.Println("Resource_type", operationDB.Resource_type)
+			fmt.Println("State", operationDB.State)
+			fmt.Println("Operation_owner_user_id", operationDB.Operation_owner_user_id)
+			fmt.Println("-----------------")
+			Expect(err).To(BeNil())
+			Expect(operationDB.State).Should(Equal(db.OperationState_Waiting))
+
+			// Get the repocred from the Operation and check if it is the same
+			fetch, err := dbq.GetRepositoryCredentialsByID(ctx, operationDB.Resource_id)
+			Expect(err).To(BeNil())
+			Expect(fetch).Should(Equal(*dbRepoCred))
+
+			fmt.Println("------- SECOND TEST PASSED -------")
+
+			// Re-running should not error
+			fmt.Println()
+			fmt.Println()
+
+			fmt.Println("T H I R D   T I M E")
+			fmt.Println()
+			fmt.Println()
+			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
+			fmt.Println()
+			fmt.Println()
+			Expect(fetch).Should(Equal(*dbRepoCred))
+			Expect(err).To(BeNil())
+
+			// Check if the Operation CR is still there
+			// Get all Operation CRs using k8sClient
+			operationList = &managedgitopsv1alpha1.OperationList{}
+			err = k8sClient.List(ctx, operationList)
+			Expect(err).To(BeNil())
+
+			// Modify the repository credential database
+			dbRepoCred.SecretObj = "test-secret-2"
+			err = dbq.UpdateRepositoryCredentials(ctx, dbRepoCred)
+			Expect(err).To(BeNil())
+
+			fmt.Println()
+			fmt.Println()
+
+			fmt.Println("F O U R T H   T I M E")
+			fmt.Println()
+			fmt.Println()
+			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
+			fmt.Println()
+			fmt.Println()
+			Expect(err).To(BeNil())
+
+			// Delete the RepositoryCredential from the DB
+			_, err = dbq.DeleteRepositoryCredentialsByID(ctx, dbRepoCred.RepositoryCredentialsID)
+			Expect(err).To(BeNil())
+
+			//fmt.Println("dbRepoCred: ", dbRepoCred)
+			//fmt.Println("------- THIRD TEST PASSED -------")
+
+		})
+
 	})
 })
