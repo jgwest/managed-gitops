@@ -246,7 +246,7 @@ func GetOrCreateGitopsEngineInstanceByInstanceNamespaceUID(ctx context.Context,
 			log.Error(err, "Unable to create GitopsEngineInstance: "+gitopsEngineInstance.Gitopsengineinstance_id)
 			return nil, false, nil, fmt.Errorf("unable to create engine instance, when neither existed: %v", err)
 		}
-		log.Info("Created GitopsEngineInstance: " + gitopsEngineInstance.Gitopsengineinstance_id)
+		// log.Info("Created GitopsEngineInstance: " + gitopsEngineInstance.Gitopsengineinstance_id)
 
 		expectedDBResourceMapping.DBRelationKey = gitopsEngineInstance.Gitopsengineinstance_id
 
@@ -257,8 +257,7 @@ func GetOrCreateGitopsEngineInstanceByInstanceNamespaceUID(ctx context.Context,
 			return nil, false, nil, fmt.Errorf("unable to create mapping when neither existed: %v", err)
 		}
 
-		log.Info("Created KubernetesResourceToDBResourceMapping with KubernetesResourceUID: "+
-			expectedDBResourceMapping.KubernetesResourceUID, expectedDBResourceMapping.GetAsLogKeyValues()...)
+		// log.Info("Created KubernetesResourceToDBResourceMapping with KubernetesResourceUID: "+ expectedDBResourceMapping.KubernetesResourceUID, expectedDBResourceMapping.GetAsLogKeyValues()...)
 
 		return gitopsEngineInstance, true, gitopsEngineCluster, nil
 
@@ -398,8 +397,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 
 			// We have found a mapping without the corresponding mapped entity, so delete the mapping.
 			// (We will recreate the mapping below)
-			log.V(util.LogLevel_Warn).Error(nil, "GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID found a resource mapping, "+
-				"but no engine cluster.")
+			// log.V(util.LogLevel_Warn).Error(nil, "GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID found a resource mapping, but no engine cluster.")
 
 			if _, err := dbq.DeleteKubernetesResourceToDBResourceMapping(ctx, dbResourceMapping); err != nil {
 				log.Error(err, "Unable to delete KubernetesResourceToDBResourceMapping (while the engine cluster was not found)",
@@ -407,8 +405,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 
 				return nil, false, err
 			}
-			log.Info("Deleted KubernetesResourceToDBResourceMapping, as the engine cluster was not found",
-				dbResourceMapping.GetAsLogKeyValues()...)
+			// log.Info("Deleted KubernetesResourceToDBResourceMapping, as the engine cluster was not found", dbResourceMapping.GetAsLogKeyValues()...)
 
 			gitopsEngineCluster = nil
 			dbResourceMapping = nil
@@ -437,8 +434,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 
 			return nil, false, fmt.Errorf("unable to create cluster creds for managed env: %v", err)
 		}
-		log.Info("Created Cluster Credentials for GitOpsEngineCluster: "+clusterCreds.Clustercredentials_cred_id,
-			clusterCreds.GetAsLogKeyValues()...)
+		// log.Info("Created Cluster Credentials for GitOpsEngineCluster: "+clusterCreds.Clustercredentials_cred_id, clusterCreds.GetAsLogKeyValues()...)
 
 		gitopsEngineCluster = &db.GitopsEngineCluster{
 			Clustercredentials_id: clusterCreds.Clustercredentials_cred_id,
@@ -447,14 +443,14 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 			log.Error(err, "Unable to create GitopsEngineCluster", gitopsEngineCluster.GetAsLogKeyValues()...)
 			return nil, false, fmt.Errorf("unable to create engine cluster, when neither existed: %v", err)
 		}
-		log.Info("Created GitopsEngineCluster: "+gitopsEngineCluster.Gitopsenginecluster_id, gitopsEngineCluster.GetAsLogKeyValues()...)
+		//log.Info("Created GitopsEngineCluster: "+gitopsEngineCluster.Gitopsenginecluster_id, gitopsEngineCluster.GetAsLogKeyValues()...)
 
 		expectedDBResourceMapping.DBRelationKey = gitopsEngineCluster.Gitopsenginecluster_id
 		if err := dbq.CreateKubernetesResourceToDBResourceMapping(ctx, &expectedDBResourceMapping); err != nil {
 			log.Error(err, "Unable to create KubernetesResourceToDBResourceMapping", expectedDBResourceMapping.GetAsLogKeyValues()...)
 			return nil, false, fmt.Errorf("unable to create mapping when neither existed: %v", err)
 		}
-		log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
+		// log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
 
 		return gitopsEngineCluster, true, nil
 
@@ -462,7 +458,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 		// Scenario B) This shouldn't happen: the above logic should ensure that dbResourceMapping is always nil, if gitopsEngineCluster is nil
 
 		err := fmt.Errorf("SEVERE: the dbResourceMapping existed, but the gitops engine cluster did not")
-		log.Error(err, err.Error())
+		//log.Error(err, err.Error())
 
 		return nil, false, err
 
@@ -476,8 +472,7 @@ func GetOrCreateGitopsEngineClusterByKubeSystemNamespaceUID(ctx context.Context,
 			return nil, false, fmt.Errorf("unable to create mapping when dbResourceMapping didn't exist: %v", err)
 		}
 
-		log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+
-			expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
+		// log.Info("Created KubernetesResourceToDBResourceMapping with DBRelationKey: "+ expectedDBResourceMapping.DBRelationKey, expectedDBResourceMapping.GetAsLogKeyValues()...)
 
 		return gitopsEngineCluster, true, nil
 
