@@ -440,6 +440,7 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			Expect(err).To(BeNil())
 			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
 			Expect(err).To(BeNil())
+			Expect(dbRepoCred).ToNot(BeNil())
 
 			// Check if there are any operations left (should not create 2nd operation if already exists for this resource)
 			operationList = &managedgitopsv1alpha1.OperationList{}
