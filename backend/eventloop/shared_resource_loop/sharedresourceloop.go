@@ -489,15 +489,13 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		l.Info("Error getting the CR")
 		// If the CR is not found, then we can assume it was deleted
 		if apierr.IsNotFound(err) {
-			_, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialCRName)
+			dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialCRName)
 			if err2 != nil {
 				// Analyze the error: Does it mean it is deleted (not found) or it's a glitch?
 				if strings.Contains(err2.Error(), errDBNotFound) {
-					l.Info(fmt.Sprintf("%v", err2))
 					l.Info("DB entry not found")
 					l.Info("No leftovers. Nothing to do")
 					// The CR is not found in the database, so it is already deleted
-					// Return nil, nil to indicate that the CR is deleted
 					return nil, nil
 				}
 
@@ -510,6 +508,15 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 					return nil, err
 				}
 				l.Info("RepositoryCredential row deleted from DB")
+
+				// We need to fire-up an Operation as well
+				l.Info("Creating an Operation for the deleted RepositoryCredential DB row")
+				err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+				if err != nil {
+					l.Info("Error creating an Operation for the deleted RepositoryCredential DB row")
+					return nil, err
+				}
+				l.Info("Operation created for the deleted RepositoryCredential DB row")
 				return nil, nil
 			}
 		}

@@ -2,7 +2,6 @@ package shared_resource_loop
 
 import (
 	"context"
-	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
@@ -271,7 +270,7 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			}
 		})
 
-		FIt("Should fetch a GitOpsDeploymentRepositoryCredential.", func() {
+		It("Should fetch a GitOpsDeploymentRepositoryCredential.", func() {
 			sharedResourceEventLoop := &SharedResourceEventLoop{inputChannel: make(chan sharedResourceLoopMessage)}
 
 			go internalSharedResourceEventLoop(sharedResourceEventLoop.inputChannel)
@@ -452,7 +451,6 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			operationDB.Operation_id = operationList.Items[0].Spec.OperationID
 			err = dbq.GetOperationById(ctx, &operationDB)
 			Expect(err).To(BeNil())
-			fmt.Println(operationDB.State)
 			Expect(operationDB.State).Should(Equal(db.OperationState_Waiting))
 
 			// Delete the operation db and operation cr
@@ -477,6 +475,18 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			// Expected: It should not exist
 			_, err = dbq.GetRepositoryCredentialsByID(ctx, cr.Name)
 			Expect(err).ToNot(BeNil())
+
+			// A new Operation should be created
+			// Check if there are any operations left (should be 1)
+			operationList = &managedgitopsv1alpha1.OperationList{}
+			err = k8sClient.List(ctx, operationList)
+			Expect(err).To(BeNil())
+			Expect(len(operationList.Items)).Should(Equal(1))
+			// Fetch the operation db
+			operationDB.Operation_id = operationList.Items[0].Spec.OperationID
+			err = dbq.GetOperationById(ctx, &operationDB)
+			Expect(err).To(BeNil())
+			Expect(operationDB.State).Should(Equal(db.OperationState_Waiting))
 
 			// Negative test: Try again to reconcile the RepositoryCredential
 			// Expected: It should not error (both db row and CR should be deleted). Nothing we can do.
