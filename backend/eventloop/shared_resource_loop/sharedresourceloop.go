@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // The goal of the shared resource event loop is to ensure that API-namespace-scoped resources are only
@@ -308,7 +307,7 @@ type sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUIDResponse stru
 func internalSharedResourceEventLoop(inputChan chan sharedResourceLoopMessage) {
 
 	ctx := context.Background()
-	l := log.FromContext(ctx)
+	l := logr.Logger{}
 	dbQueries, err := db.NewSharedProductionPostgresDBQueries(false)
 	if err != nil {
 		l.Error(err, "SEVERE: internalSharedResourceEventLoop exiting before startup")
@@ -717,7 +716,7 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 }
 
 func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.RepositoryCredentials, clusterUser *db.ClusterUser, ns string, dbQueries db.DatabaseQueries, apiNamespaceClient client.Client) error {
-	// l.Info("Creating operation...")
+	l.Info("Creating operation...")
 
 	dbOperationInput := db.Operation{
 		Instance_id:             dbRepoCred.EngineClusterID,
@@ -727,15 +726,14 @@ func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.R
 		Operation_owner_user_id: clusterUser.Clusteruser_id,
 	}
 
-	logger := log.Log
-	_, _, err := operations.CreateOperation(ctx, false, dbOperationInput, clusterUser.Clusteruser_id, ns, dbQueries, apiNamespaceClient, logger)
+	operationCR, operationDB, err := operations.CreateOperation(ctx, false, dbOperationInput, clusterUser.Clusteruser_id, ns, dbQueries, apiNamespaceClient, l)
 	if err != nil {
 		err2 := fmt.Errorf("unable to create operation: %v", err)
 		return err2
 	}
 
-	//l.Info("operationCR", "operationCR", operationCR)
-	//l.Info("operationDB", "operationDB", operationDB)
+	l.Info("operationCR", "operationCR", operationCR)
+	l.Info("operationDB", "operationDB", operationDB)
 
 	return nil
 }
@@ -743,14 +741,14 @@ func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.R
 func compareClusterResourceWithDatabaseRow(cr managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential, dbr *db.RepositoryCredentials, l logr.Logger) bool {
 	var isSecretUpdateNeeded bool
 	if cr.Spec.Secret != dbr.SecretObj {
-		// l.Info("Secret name changed", "old", dbr.SecretObj, "new", cr.Spec.Secret)
+		l.Info("Secret name changed", "old", dbr.SecretObj, "new", cr.Spec.Secret)
 		dbr.SecretObj = cr.Spec.Secret
 		isSecretUpdateNeeded = true
 	}
 
 	var isRepoUpdateNeeded bool
 	if cr.Spec.Repository != dbr.PrivateURL {
-		// l.Info("Repository URL changed", "old", dbr.PrivateURL, "new", cr.Spec.Repository)
+		l.Info("Repository URL changed", "old", dbr.PrivateURL, "new", cr.Spec.Repository)
 		dbr.PrivateURL = cr.Spec.Repository
 		isSecretUpdateNeeded = true
 	}

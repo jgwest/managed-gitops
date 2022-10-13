@@ -3,7 +3,6 @@ package shared_resource_loop
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
@@ -385,7 +384,8 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			repositoryCredentialCRNamespace.UID = types.UID(gitopsEngineInstance.Namespace_uid)
 
 			var k8sClientFactory SRLK8sClientFactory
-			var l logr.Logger
+			l := log
+			fmt.Println("Logger variable withing the Ginkgo Tests:", l)
 
 			dbRepoCred, err := internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
 			fmt.Println("dbRepoCred: ", dbRepoCred)
