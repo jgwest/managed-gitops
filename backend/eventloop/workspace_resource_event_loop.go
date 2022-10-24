@@ -198,46 +198,48 @@ func internalProcessWorkspaceResourceMessage(ctx context.Context, msg workspaceR
 			return false, nil
 		}
 
-		repoCreds := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
+		// REVIEWER: Please advise
 
-		if err := msg.apiNamespaceClient.Get(ctx, req.NamespacedName, repoCreds); err != nil {
-
-			if !apierr.IsNotFound(err) {
-				return true, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
-			}
-
-			// The repository credentials necessarily don't exist
-
-			// Find any existing database resources for repository credentials that previously existing with this namespace/name
-			apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
-			if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
-				req.Name, req.Namespace, string(namespace.GetUID()), db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential, &apiCRToDBMappingList); err != nil {
-
-				return true, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
-			}
-
-			for _, item := range apiCRToDBMappingList {
-
-				fmt.Println("STUB:", item)
-
-				// TODO: GITOPSRVCE-96: STUB: Next steps:
-				// - Delete the repository credential from the database
-				// - Create the operation row, pointing to the deleted repository credentials table
-				// - Delete the APICRToDatabaseMapping referenced by 'item'
-
-			}
-
-			// TODO: GITOPSRVCE-96:  STUB - reconcile on the missing repository credentials
-
-			return false, fmt.Errorf("STUB: reconcile on the missing repository credentials")
-
-		}
-
-		// TODO: GITOPSRVCE-96: STUB: If it exists, compare it with what's in the database
-		// - If it doesn't exist in the database, create it
-		// - If it does exist in the database, but the values are different, update it
-
-		return false, fmt.Errorf("STUB: not yet implemented")
+		//repoCreds := &managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential{}
+		//
+		//if err := msg.apiNamespaceClient.Get(ctx, req.NamespacedName, repoCreds); err != nil {
+		//
+		//	if !apierr.IsNotFound(err) {
+		//		return true, fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+		//	}
+		//
+		//	// The repository credentials necessarily don't exist
+		//
+		//	// Find any existing database resources for repository credentials that previously existing with this namespace/name
+		//	apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
+		//	if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+		//		req.Name, req.Namespace, string(namespace.GetUID()), db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential, &apiCRToDBMappingList); err != nil {
+		//
+		//		return true, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
+		//	}
+		//
+		//	for _, item := range apiCRToDBMappingList {
+		//
+		//		fmt.Println("STUB:", item)
+		//
+		//		// TODO: GITOPSRVCE-96: STUB: Next steps:
+		//		// - Delete the repository credential from the database
+		//		// - Create the operation row, pointing to the deleted repository credentials table
+		//		// - Delete the APICRToDatabaseMapping referenced by 'item'
+		//
+		//	}
+		//
+		//	// TODO: GITOPSRVCE-96:  STUB - reconcile on the missing repository credentials
+		//
+		//	return false, fmt.Errorf("STUB: reconcile on the missing repository credentials")
+		//
+		//}
+		//
+		//// TODO: GITOPSRVCE-96: STUB: If it exists, compare it with what's in the database
+		//// - If it doesn't exist in the database, create it
+		//// - If it does exist in the database, but the values are different, update it
+		//
+		//return false, fmt.Errorf("STUB: not yet implemented")
 	} else if msg.messageType == workspaceResourceLoopMessageType_processManagedEnvironment {
 
 		evlMessage, ok := (msg.payload).(eventlooptypes.EventLoopMessage)
