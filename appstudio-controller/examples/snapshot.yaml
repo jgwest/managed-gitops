@@ -14,7 +14,7 @@ spec:
       build:
         - containerImage: quay.io/jgwest-redhat/sample-workload:latest
           sourceRepository:
-          url: https://github.com/redhat-appstudio/gitops-repository-template
+          url: https://github.com/redhat-appstudio/managed-gitops
           commitID: a594265
       attributes:
         - qeApproved

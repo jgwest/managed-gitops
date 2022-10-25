@@ -20,9 +20,9 @@ status:
   components:
     - name: component-a
       gitopsRepository: 
-        url: "https://github.com/redhat-appstudio/gitops-repository-template"
+        url: "https://github.com/redhat-appstudio/managed-gitops"
         branch: main
-        path: components/componentA/overlays/staging
+        path: resources/test-data/sample-gitops-repository/components/componentA/overlays/staging
         generatedResources:
           - abc.yaml
         commitID: fdhyqtw

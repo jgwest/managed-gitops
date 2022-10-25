@@ -5,8 +5,8 @@ metadata:
   namespace: jane
 spec:
   source:
-    repoURL: https://github.com/redhat-appstudio/gitops-repository-template
-    path: environments/overlays/dev
+    repoURL: https://github.com/redhat-appstudio/managed-gitops
+    path: resources/test-data/sample-gitops-repository/environments/overlays/dev
 
 #  destination: {}
 

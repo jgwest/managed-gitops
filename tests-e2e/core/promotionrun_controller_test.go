@@ -53,8 +53,8 @@ var _ = Describe("Application Promotion Run E2E Tests.", func() {
 
 			By("Update Status field.")
 			err = buildAndUpdateBindingStatus(bindingStage.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging", "components/componentB/overlays/staging"}, &bindingStage)
+				"https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging", "resources/test-data/sample-gitops-repository/components/componentB/overlays/staging"}, &bindingStage)
 			Expect(err).To(Succeed())
 
 			By("Create Production Binding.")
@@ -64,10 +64,9 @@ var _ = Describe("Application Promotion Run E2E Tests.", func() {
 			Expect(err).To(Succeed())
 
 			By("Update Status field.")
-
 			err = buildAndUpdateBindingStatus(bindingProd.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging", "components/componentB/overlays/staging"}, &bindingProd)
+				"https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging", "resources/test-data/sample-gitops-repository/components/componentB/overlays/staging"}, &bindingProd)
 			Expect(err).To(Succeed())
 
 			By("Verify that Status.GitOpsDeployments field of Binding is having Component and GitOpsDeployment name.")

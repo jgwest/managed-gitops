@@ -1,0 +1,20 @@
+resources:
+- ../../base
+- ../../../components/componentA/overlays/dev
+- ../../../components/componentB/overlays/dev
+# - (additional resources that will only be applied in this environment)
+
+# patches to resources in this environment
+patches:
+- patch: |-
+    - op: replace
+      path: /data/environment-env-var
+      value: dev
+  target:
+    kind: ConfigMap
+    name: environment-config-map
+
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+

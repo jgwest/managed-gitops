@@ -72,8 +72,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update Status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging", "components/componentB/overlays/staging"}, &binding)
+				"https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging", "resources/test-data/sample-gitops-repository/components/componentB/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			//====================================================
@@ -140,8 +140,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update Status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			//====================================================
@@ -172,7 +172,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			err = k8s.Get(&binding, k8sClient)
 			Expect(err).To(Succeed())
-			binding.Status.Components[0].GitOpsRepository.Path = "components/componentA/overlays/dev"
+			binding.Status.Components[0].GitOpsRepository.Path = "resources/test-data/sample-gitops-repository/components/componentA/overlays/dev"
 			err = k8s.Update(&binding, k8sClient)
 			Expect(err).To(Succeed())
 
@@ -209,8 +209,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update the Status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			//====================================================
@@ -240,7 +240,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 			By("Update GitOpsDeployment CR, but dont change anything is in Binding CR.")
 
 			err = bindingFixture.UpdateStatusWithFunction(&binding, func(bindingStatus *appstudiosharedv1.SnapshotEnvironmentBindingStatus) {
-				bindingStatus.Components[0].GitOpsRepository.Path = "components/componentA/overlays/dev"
+				bindingStatus.Components[0].GitOpsRepository.Path = "resources/test-data/sample-gitops-repository/components/componentA/overlays/dev"
 			})
 			Expect(err).To(Succeed())
 
@@ -271,8 +271,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update the Status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template",
-				"main", "fdhyqtw", []string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops",
+				"main", "fdhyqtw", []string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			//====================================================
@@ -346,8 +346,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update the status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			//====================================================
@@ -419,8 +419,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update the status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			By("waiting for the the controller to Reconcile the GitOpsDeplyoment")
@@ -460,8 +460,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 			By("Update Status field of SnapshotEnvironmentBindingResource")
 			// Update the status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			By("Verify that Status.GitOpsDeployments field of Binding is having Component and GitOpsDeployment name.")
@@ -500,8 +500,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 			By("Update Status field of SnapshotEnvironmentBindingResource")
 			// Update the status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			By("Verify that Status.GitOpsDeployments field of Binding is having Component and GitOpsDeployment name.")
@@ -539,8 +539,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler E2E tests", func() {
 
 			// Update the status field
 			err = buildAndUpdateBindingStatus(binding.Spec.Components,
-				"https://github.com/redhat-appstudio/gitops-repository-template", "main", "fdhyqtw",
-				[]string{"components/componentA/overlays/staging"}, &binding)
+				https://github.com/redhat-appstudio/managed-gitops", "main", "fdhyqtw",
+				[]string{"resources/test-data/sample-gitops-repository/components/componentA/overlays/staging"}, &binding)
 			Expect(err).To(Succeed())
 
 			By("Verify that Status.GitOpsDeployments field of Binding is having Component and GitOpsDeployment name.")

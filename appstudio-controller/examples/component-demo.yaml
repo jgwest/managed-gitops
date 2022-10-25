@@ -53,4 +53,4 @@ status:
     schemaVersion: 2.1.0
   gitops:
     context: ./components/componentA/overlays/staging/
-    repositoryURL: https://github.com/redhat-appstudio/gitops-repository-template
+    repositoryURL: https://github.com/redhat-appstudio/managed-gitops

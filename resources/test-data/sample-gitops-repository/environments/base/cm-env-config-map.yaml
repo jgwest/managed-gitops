@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment-config-map
+data:
+  first-env-var: "number one"
+  environment-env-var: base
+  third-env-var: "number three"
+

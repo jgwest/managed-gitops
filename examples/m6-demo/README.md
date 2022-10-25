@@ -65,8 +65,8 @@ spec:
 
   # Application/component to deploy
   source:
-    repoURL: https://github.com/redhat-appstudio/gitops-repository-template
-    path: environments/overlays/dev
+    repoURL: https://github.com/redhat-appstudio/managed-gitops
+    path: resources/test-data/sample-gitops-repository/environments/overlays/dev
 
   destination:
     environment: my-remote-cluster
@@ -152,12 +152,12 @@ vi jgw-deployment.yaml
 #
 # spec:
 #   source:
-#     path: environments/overlays/dev
+#     path: resources/test-data/sample-gitops-repository/environments/overlays/dev
 # to
 #
 # spec:
 #   source:
-#     path: environments/overlays/staging
+#     path: resources/test-data/sample-gitops-repository/environments/overlays/staging
 
 # Apply the change
 kubectl apply -f jgw-deployment.yaml
@@ -242,8 +242,8 @@ spec:
 
   # Application/component to deploy
   source:
-    repoURL: https://github.com/redhat-appstudio/gitops-repository-template
-    path: environments/overlays/dev
+    repoURL: https://github.com/redhat-appstudio/managed-gitops
+    path: resources/test-data/sample-gitops-repository/environments/overlays/dev
 
   destination:
     environment: my-managed-environment

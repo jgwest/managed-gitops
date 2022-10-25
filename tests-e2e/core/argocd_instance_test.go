@@ -94,8 +94,8 @@ var _ = Describe("Standalone ArgoCD instance E2E tests", func() {
 				},
 				Spec: appv1.ApplicationSpec{
 					Source: appv1.ApplicationSource{
-						RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-						Path:           "environments/overlays/dev",
+						RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+						Path:           "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 						TargetRevision: "HEAD",
 					},
 					Destination: appv1.ApplicationDestination{

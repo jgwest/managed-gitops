@@ -24,7 +24,7 @@ var _ = Describe("Argo CD Application", func() {
 
 			By("create a new GitOpsDeployment CR")
 			gitOpsDeployment := buildGitOpsDeploymentResource("my-gitops-depl-automated",
-				"https://github.com/redhat-appstudio/gitops-repository-template", "environments/overlays/dev",
+				"https://github.com/redhat-appstudio/managed-gitops", "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 				managedgitopsv1alpha1.GitOpsDeploymentSpecType_Automated)
 
 			k8sClient, err := fixture.GetE2ETestUserWorkspaceKubeClient()

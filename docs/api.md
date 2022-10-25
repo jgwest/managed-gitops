@@ -23,8 +23,8 @@ spec:
 
   # Application/component to deploy
   source:
-    repoURL: https://github.com/redhat-appstudio/gitops-repository-template
-    path: environments/overlays/dev
+    repoURL: https://github.com/redhat-appstudio/managed-gitops
+    path: resources/test-data/sample-gitops-repository/environments/overlays/dev
 
   destination:  # destination is user workspace if empty
     environment: my-managed-environment
@@ -220,7 +220,7 @@ status:
   components:
     - name: component-a
       gitopsRepository:
-        url: "https://github.com/redhat-appstudio/gitops-repository-template"
+        url: "https://github.com/redhat-appstudio/managed-gitops"
         branch: main
         path: components/componentA/overlays/staging
         generatedResources:

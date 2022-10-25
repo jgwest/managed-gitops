@@ -1,0 +1,9 @@
+
+resources:
+  - deployment-sample-workload.yaml
+  - service-sample-workload.yaml
+  - route-sample-workload.yaml
+# - (resources will be applied in all environments, though overlays may modify these via patches)
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

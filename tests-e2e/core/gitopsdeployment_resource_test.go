@@ -26,8 +26,8 @@ var _ = Describe("GitOpsDeployment Condition Tests", func() {
 				},
 				Spec: managedgitopsv1alpha1.GitOpsDeploymentSpec{
 					Source: managedgitopsv1alpha1.ApplicationSource{
-						RepoURL: "https://github.com/redhat-appstudio/gitops-repository-template",
-						Path:    "environments/overlays/dev",
+						RepoURL: "https://github.com/redhat-appstudio/managed-gitops",
+						Path:    "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 					},
 					Destination: managedgitopsv1alpha1.ApplicationDestination{
 						Environment: "does-not-exist", // This is the invalid value, which should return a condition error

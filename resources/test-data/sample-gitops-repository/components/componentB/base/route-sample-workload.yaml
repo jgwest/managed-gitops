@@ -1,0 +1,17 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: component-b
+spec:
+  subdomain: component-b
+  to:
+    kind: Service
+    name: component-b
+    weight: 100
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+

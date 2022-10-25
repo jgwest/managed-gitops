@@ -6,7 +6,7 @@ metadata:
 spec:
   source:
     repoURL: https://github.com/jgwest/gitops-repository-template
-    path: environments/overlays/dev
+    path: resources/test-data/sample-gitops-repository/environments/overlays/dev
     targetRevision: k8s-only
 
 #  destination: {}

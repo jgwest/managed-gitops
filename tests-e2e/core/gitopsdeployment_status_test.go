@@ -24,7 +24,7 @@ var _ = Describe("GitOpsDeployment Status Tests", func() {
 
 			By("create a new GitOpsDeployment resource")
 			gitOpsDeploymentResource := buildGitOpsDeploymentResource("gitops-depl-test-status",
-				"https://github.com/redhat-appstudio/gitops-repository-template", "environments/overlays/dev",
+				"https://github.com/redhat-appstudio/managed-gitops", "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 				managedgitopsv1alpha1.GitOpsDeploymentSpecType_Automated)
 
 			k8sClient, err := fixture.GetE2ETestUserWorkspaceKubeClient()
@@ -193,8 +193,8 @@ var _ = Describe("GitOpsDeployment SyncError test", func() {
 			Expect(err).To(Succeed())
 
 			By("Update the gitOpsDeploymentResource to fix the failure")
-			gitOpsDeploymentResource.Spec.Source.RepoURL = "https://github.com/redhat-appstudio/gitops-repository-template"
-			gitOpsDeploymentResource.Spec.Source.Path = "environments/overlays/dev"
+			gitOpsDeploymentResource.Spec.Source.RepoURL = "https://github.com/redhat-appstudio/managed-gitops"
+			gitOpsDeploymentResource.Spec.Source.Path = "resources/test-data/sample-gitops-repository/environments/overlays/dev"
 
 			err = k8s.Update(&gitOpsDeploymentResource, k8sClient)
 			Expect(err).To(Succeed())

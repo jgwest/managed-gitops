@@ -25,10 +25,10 @@ status:
       containerImage/demo: quay.io/jgwest-redhat/sample-workload:latest
     metadata:
       attributes:
-        appModelRepository.context: environments/overlays/staging
-        appModelRepository.url: https://github.com/redhat-appstudio/gitops-repository-template
+        appModelRepository.context: resources/test-data/sample-gitops-repository/environments/overlays/staging
+        appModelRepository.url: https://github.com/redhat-appstudio/managed-gitops
 
-        gitOpsRepository.context: environments/overlays/staging
-        gitOpsRepository.url: https://github.com/redhat-appstudio/gitops-repository-template
+        gitOpsRepository.context: resources/test-data/sample-gitops-repository/environments/overlays/staging
+        gitOpsRepository.url: https://github.com/redhat-appstudio/managed-gitops
       name: New Demo App
     schemaVersion: 2.1.0

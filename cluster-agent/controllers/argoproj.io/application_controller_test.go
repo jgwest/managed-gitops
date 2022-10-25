@@ -1148,8 +1148,8 @@ func createDummyApplicationData() (fauxargocd.FauxApplication, string, appv1.App
 		},
 		Spec: appv1.ApplicationSpec{
 			Source: appv1.ApplicationSource{
-				RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-				Path:           "environments/overlays/dev",
+				RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+				Path:           "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 				TargetRevision: "",
 			},
 			Destination: appv1.ApplicationDestination{
@@ -1177,8 +1177,8 @@ func createDummyApplicationData() (fauxargocd.FauxApplication, string, appv1.App
 		},
 		Spec: fauxargocd.FauxApplicationSpec{
 			Source: fauxargocd.ApplicationSource{
-				RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-				Path:           "environments/overlays/dev",
+				RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+				Path:           "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 				TargetRevision: "",
 			},
 			Destination: fauxargocd.ApplicationDestination{

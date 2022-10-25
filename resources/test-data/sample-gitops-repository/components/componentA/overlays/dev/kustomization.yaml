@@ -1,0 +1,18 @@
+resources:
+  - ../../base
+# - (additional resources that will only be applied in this environment)
+
+# patches to resources in this environment
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/0
+      value:
+        name: RESOURCE_ENVIRONMENT
+        value: dev
+  target:
+    kind: Deployment
+    name: component-a
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

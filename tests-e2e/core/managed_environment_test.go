@@ -53,7 +53,7 @@ var _ = Describe("GitOpsDeployment Managed Environment E2E tests", func() {
 			Expect(err).To(BeNil())
 
 			gitOpsDeploymentResource := buildGitOpsDeploymentResource("my-gitops-depl",
-				"https://github.com/redhat-appstudio/gitops-repository-template", "environments/overlays/dev",
+				"https://github.com/redhat-appstudio/managed-gitops", "resources/test-data/sample-gitops-repository/environments/overlays/dev",
 				managedgitopsv1alpha1.GitOpsDeploymentSpecType_Automated)
 			gitOpsDeploymentResource.Spec.Destination.Environment = managedEnv.Name
 			gitOpsDeploymentResource.Spec.Destination.Namespace = fixture.GitOpsServiceE2ENamespace

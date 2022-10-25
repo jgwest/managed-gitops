@@ -98,9 +98,9 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 						{
 							Name: "component-a",
 							GitOpsRepository: appstudiosharedv1.BindingComponentGitOpsRepository{
-								URL:    "https://github.com/redhat-appstudio/gitops-repository-template",
+								URL:    "https://github.com/redhat-appstudio/managed-gitops",
 								Branch: "main",
-								Path:   "components/componentA/overlays/staging",
+								Path:   "resources/test-data/sample-gitops-repository/components/componentA/overlays/staging",
 							},
 						},
 					},

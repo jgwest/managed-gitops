@@ -516,8 +516,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				},
 				Spec: apibackend.GitOpsDeploymentSpec{
 					Source: apibackend.ApplicationSource{
-						RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-						Path:           "components/componentA/overlays/staging",
+						RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+						Path:           "resources/test-data/sample-gitops-repository/components/componentA/overlays/staging",
 						TargetRevision: "main",
 					},
 					Type:        apibackend.GitOpsDeploymentSpecType_Automated, // Default to automated, for now
@@ -618,8 +618,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				},
 				Spec: apibackend.GitOpsDeploymentSpec{
 					Source: apibackend.ApplicationSource{
-						RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-						Path:           "components/componentA/overlays/staging",
+						RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+						Path:           "resources/test-data/sample-gitops-repository/components/componentA/overlays/staging",
 						TargetRevision: "main",
 					},
 					Type:        apibackend.GitOpsDeploymentSpecType_Automated, // Default to automated, for now
@@ -715,8 +715,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				},
 				Spec: apibackend.GitOpsDeploymentSpec{
 					Source: apibackend.ApplicationSource{
-						RepoURL:        "https://github.com/redhat-appstudio/gitops-repository-template",
-						Path:           "components/componentA/overlays/staging",
+						RepoURL:        "https://github.com/redhat-appstudio/managed-gitops",
+						Path:           "resources/test-data/sample-gitops-repository/components/componentA/overlays/staging",
 						TargetRevision: "main",
 					},
 					Type:        apibackend.GitOpsDeploymentSpecType_Automated, // Default to automated, for now
