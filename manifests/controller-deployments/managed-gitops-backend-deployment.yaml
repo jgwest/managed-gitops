@@ -16,6 +16,7 @@ spec:
       labels:
         control-plane: backend-controller-manager
     spec:
+      automountServiceAccountToken: true
       containers:
       - args:
         - --secure-listen-address=0.0.0.0:8443
@@ -33,6 +34,8 @@ spec:
         - --metrics-bind-address=127.0.0.1:18080
         - --leader-elect
         - --zap-time-encoding=rfc3339nano
+        - --api-export-name=gitops-api
+#        - --api-export-name=gitopsrvc-backend-shared
         command:
         - gitops-service-backend
         env:
@@ -45,6 +48,8 @@ spec:
               secretKeyRef:
                 name: gitops-postgresql-staging
                 key: postgresql-password
+          - name: GITOPS_IN_KCP
+            value: "true"
         image: ${COMMON_IMAGE}
         livenessProbe:
           httpGet:

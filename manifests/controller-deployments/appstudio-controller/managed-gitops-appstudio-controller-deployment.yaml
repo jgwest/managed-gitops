@@ -34,8 +34,12 @@ spec:
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
         - --zap-time-encoding=rfc3339nano
+        - --api-export-name=gitopsrvc-appstudio-shared
         command:
         - appstudio-controller
+        env:
+          - name: GITOPS_IN_KCP
+            value: "true"
         image: ${COMMON_IMAGE}
         livenessProbe:
           httpGet:
