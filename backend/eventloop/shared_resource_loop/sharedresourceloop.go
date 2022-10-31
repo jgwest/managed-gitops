@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
 
@@ -307,7 +308,8 @@ type sharedResourceLoopMessage_getOrCreateClusterUserByNamespaceUIDResponse stru
 
 func internalSharedResourceEventLoop(inputChan chan sharedResourceLoopMessage) {
 
-	l := logr.Logger{}
+	ctx := context.Background()
+	l := log.FromContext(ctx)
 	dbQueries, err := db.NewSharedProductionPostgresDBQueries(false)
 	if err != nil {
 		l.Error(err, "SEVERE: internalSharedResourceEventLoop exiting before startup")
@@ -494,41 +496,77 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		l.Info("Error getting the CR")
 		// If the CR is not found, then we can assume it was deleted
 		if apierr.IsNotFound(err) {
-			dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialCRName)
-			if err2 != nil {
-				// Analyze the error: Does it mean it is deleted (not found) or it's a glitch?
-				if strings.Contains(err2.Error(), errDBNotFound) {
-					l.Info("DB entry not found")
-					l.Info("No leftovers. Nothing to do")
-					// The CR is not found in the database, so it is already deleted
+
+			// Σε αυτό το σημείο πρέπει να ψάξω και να βρω την κατάλληλη εγγραφή στη βάση δεδομένων
+			apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
+			if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(
+				ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+				repositoryCredentialCRName,
+				repositoryCredentialCRNamespace.Name,
+				string(repositoryCredentialCRNamespace.GetUID()),
+				db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
+				&apiCRToDBMappingList); err != nil {
+
+				return nil, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
+			}
+
+			// Σε αυτό το σημείο έχουμε ήδη ένα working Mapping το οποιό μπορεί να περιέχει μία ή
+			// και περισσότερες εγγραφές στη βάση δεδομένων
+
+			for _, item := range apiCRToDBMappingList {
+				repositoryCredentialPrimaryKey := item.DBRelationKey
+				dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)
+
+				if err2 != nil {
+					// Analyze the error: Does it mean it is deleted (not found) or it's a glitch?
+					if strings.Contains(err2.Error(), errDBNotFound) {
+						l.Info("DB entry not found")
+						l.Info("No leftovers. Nothing to do")
+						// The CR is not found in the database, so it is already deleted
+						return nil, nil
+					}
+
+					// It's a glitch, so return the error
+					l.Info("Error getting repo cred from DB")
+					return nil, fmt.Errorf("unable to retrieve repository credential from the database: %v", err2)
+				} else {
+					l.Info("[Leftover] RepositoryCredential row found in DB")
+					if _, err := deleteRepoCredFromDB(ctx, dbQueries, repositoryCredentialCRName, l); err != nil {
+						return nil, err
+					}
+					l.Info("RepositoryCredential row deleted from DB")
+
+					// We need to fire-up an Operation as well
+					l.Info("Creating an Operation for the deleted RepositoryCredential DB row")
+					err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+					if err != nil {
+						l.Info("Error creating an Operation for the deleted RepositoryCredential DB row")
+						return nil, err
+					}
+					l.Info("Operation created for the deleted RepositoryCredential DB row")
+
+					// - Delete the APICRToDatabaseMapping referenced by 'item'
+					rowsDeleted, err := dbQueries.DeleteAPICRToDatabaseMapping(ctx, &item)
+					if err != nil {
+						l.Info("unable to delete apiCRToDBmapping", "mapping", item.APIResourceUID)
+						return nil, err
+					} else if rowsDeleted == 0 {
+						l.Info("unexpected number of rows deleted of apiCRToDBmapping", "mapping", item.APIResourceUID)
+					} else {
+						l.Info("Deleted APICRToDatabaseMapping")
+					}
+
+					// Success
 					return nil, nil
 				}
 
-				// It's a glitch, so return the error
-				l.Info("Error getting repo cred from DB")
-				return nil, fmt.Errorf("unable to retrieve repository credential from the database: %v", err2)
-			} else {
-				l.Info("[Leftover] RepositoryCredential row found in DB")
-				if _, err := deleteRepoCredFromDB(ctx, dbQueries, repositoryCredentialCRName, l); err != nil {
-					return nil, err
-				}
-				l.Info("RepositoryCredential row deleted from DB")
-
-				// We need to fire-up an Operation as well
-				l.Info("Creating an Operation for the deleted RepositoryCredential DB row")
-				err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
-				if err != nil {
-					l.Info("Error creating an Operation for the deleted RepositoryCredential DB row")
-					return nil, err
-				}
-				l.Info("Operation created for the deleted RepositoryCredential DB row")
-				return nil, nil
 			}
+
 		}
 
 		// Something went wrong, retry
 		l.WithValues("Error", err, "DebugErr", errGenericCR, "CR Name", cr, "Namespace", ns)
-		vErr := fmt.Errorf("unexpected error in retrieving repo credentials: %v", err)
+		vErr := fmt.Errorf("unexpected error in retrieving repository credentials: %v", err)
 		return nil, vErr
 	}
 
@@ -565,61 +603,94 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		secretObj = secret.Name
 	}
 
-	// The gitopsDeploymentRepositoryCredentialCR Name should be equivalent to the RepositoryCredentialsID from the DB
-	dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, gitopsDeploymentRepositoryCredentialCR.Name)
-	if err2 != nil {
+	apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
+	if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(
+		ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+		repositoryCredentialCRName,
+		repositoryCredentialCRNamespace.Name,
+		string(repositoryCredentialCRNamespace.GetUID()),
+		db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
+		&apiCRToDBMappingList); err != nil {
 
-		if db.IsResultNotFoundError(err2) {
-			// If the CR exists in the cluster but not in the DB, then create it in the DB and create an Operation.
-			dbRepoCred = db.RepositoryCredentials{
-				RepositoryCredentialsID: gitopsDeploymentRepositoryCredentialCR.Name,
-				UserID:                  clusterUser.Clusteruser_id, // comply with the constraint 'fk_clusteruser_id'
-				PrivateURL:              privateURL,                 // or gitopsDeploymentRepositoryCredentialCR.Spec.Repository?
-				AuthUsername:            authUsername,
-				AuthPassword:            authPassword,
-				AuthSSHKey:              authSSHKey,
-				SecretObj:               secretObj,
-				EngineClusterID:         gitopsEngineInstance.Gitopsengineinstance_id, // comply with the constraint 'fk_gitopsengineinstance_id',
-			}
-
-			err = dbQueries.CreateRepositoryCredentials(ctx, &dbRepoCred)
-
-			if err != nil {
-				l.WithValues("Error", err, "DebugErr", errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
-				err2 := fmt.Errorf("unable to create repository credential in the database: %v", err)
-				return nil, err2
-			}
-
-			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
-			if err != nil {
-				return nil, err
-			}
-
-			return &dbRepoCred, nil
-		}
-		l.WithValues("Error retrieving repository credentials from DB", err, "repositoryCredentialsID", gitopsDeploymentRepositoryCredentialCR.UID)
-		err3 := fmt.Errorf("error retrieving repository credentials from DB: %v", err2)
-		return nil, err3
-
-	} else {
-		// If the CR exists in the cluster and in the DB, then check if the data is the same and create an Operation
-		isUpdateNeeded := compareClusterResourceWithDatabaseRow(*gitopsDeploymentRepositoryCredentialCR, &dbRepoCred, l)
-		if isUpdateNeeded {
-			l.Info("Syncing with database...")
-			if err = dbQueries.UpdateRepositoryCredentials(ctx, &dbRepoCred); err != nil {
-				l.WithValues("Error", err, "ErrDebug", errUpdateDBRepoCred)
-				return nil, err
-			}
-
-			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return &dbRepoCred, nil
-		}
+		return nil, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
 	}
-	return &dbRepoCred, nil
+	l.Info("APICRToDatabaseMapping list", "list", apiCRToDBMappingList)
+
+	var dbRepoCred db.RepositoryCredentials
+	l.Info("Before the loop")
+	for _, item := range apiCRToDBMappingList {
+		l.Info("In the loop")
+		repositoryCredentialPrimaryKey := item.DBRelationKey
+		var err2 error
+		l.Info("Primary Key", "key", repositoryCredentialPrimaryKey)
+		dbRepoCred, err2 = dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)
+		l.Info("dbCR", "dbCR", dbRepoCred)
+
+		if err2 != nil {
+			l.Info("Error getting repo cred from DB")
+
+			if db.IsResultNotFoundError(err2) {
+				// If the CR exists in the cluster but not in the DB, then create it in the DB and create an Operation.
+				dbRepoCred = db.RepositoryCredentials{
+					RepositoryCredentialsID: gitopsDeploymentRepositoryCredentialCR.Name,
+					UserID:                  clusterUser.Clusteruser_id, // comply with the constraint 'fk_clusteruser_id'
+					PrivateURL:              privateURL,                 // or gitopsDeploymentRepositoryCredentialCR.Spec.Repository?
+					AuthUsername:            authUsername,
+					AuthPassword:            authPassword,
+					AuthSSHKey:              authSSHKey,
+					SecretObj:               secretObj,
+					EngineClusterID:         gitopsEngineInstance.Gitopsengineinstance_id, // comply with the constraint 'fk_gitopsengineinstance_id',
+				}
+
+				err = dbQueries.CreateRepositoryCredentials(ctx, &dbRepoCred)
+
+				if err != nil {
+					l.WithValues("Error", err, "DebugErr", errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
+					err2 := fmt.Errorf("unable to create repository credential in the database: %v", err)
+					return nil, err2
+				}
+
+				err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+				if err != nil {
+					return nil, err
+				}
+
+				return &dbRepoCred, nil
+			}
+			l.WithValues("Error retrieving repository credentials from DB", err, "repositoryCredentialsID", gitopsDeploymentRepositoryCredentialCR.UID)
+			err3 := fmt.Errorf("error retrieving repository credentials from DB: %v", err2)
+			return nil, err3
+
+		} else {
+			l.Info("the CR exists in the cluster and in the DB, then check if the data is the same and create an Operation")
+			// If the CR exists in the cluster and in the DB, then check if the data is the same and create an Operation
+			isUpdateNeeded := compareClusterResourceWithDatabaseRow(*gitopsDeploymentRepositoryCredentialCR, &dbRepoCred, secret, l)
+			if isUpdateNeeded {
+				l.Info("Syncing with database...")
+				if err = dbQueries.UpdateRepositoryCredentials(ctx, &dbRepoCred); err != nil {
+					l.WithValues("Error", err, "ErrDebug", errUpdateDBRepoCred)
+					return nil, err
+				}
+
+				err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return &dbRepoCred, nil
+			}
+		}
+
+	}
+	l.Info("After the loop")
+
+	if len(apiCRToDBMappingList) == 1 {
+		return &dbRepoCred, nil
+	} else if len(apiCRToDBMappingList) > 1 {
+		return nil, fmt.Errorf("more than one repository credentials found in the database for the same CR")
+	} else {
+		return nil, fmt.Errorf("no repository credentials found in the database for the CR")
+	}
 }
 
 func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.RepositoryCredentials, clusterUser *db.ClusterUser, ns string, dbQueries db.DatabaseQueries, apiNamespaceClient client.Client) error {
@@ -645,7 +716,7 @@ func createRepoCredOperation(ctx context.Context, l logr.Logger, dbRepoCred db.R
 	return nil
 }
 
-func compareClusterResourceWithDatabaseRow(cr managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential, dbr *db.RepositoryCredentials, l logr.Logger) bool {
+func compareClusterResourceWithDatabaseRow(cr managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredential, dbr *db.RepositoryCredentials, secret *corev1.Secret, l logr.Logger) bool {
 	var isSecretUpdateNeeded bool
 	if cr.Spec.Secret != dbr.SecretObj {
 		l.Info("Secret name changed", "old", dbr.SecretObj, "new", cr.Spec.Secret)
@@ -660,7 +731,34 @@ func compareClusterResourceWithDatabaseRow(cr managedgitopsv1alpha1.GitOpsDeploy
 		isSecretUpdateNeeded = true
 	}
 
-	return isSecretUpdateNeeded || isRepoUpdateNeeded
+	// Fetch these data from the secret
+	authUsername := string(secret.Data["username"])
+	authPassword := string(secret.Data["password"])
+	authSSHKey := string(secret.Data["sshPrivateKey"])
+
+	// Compare the data from the secret with the data from the DB
+	var isAuthUsernameUpdateNeeded bool
+	if authUsername != dbr.AuthUsername {
+		l.Info("AuthUsername changed", "old", dbr.AuthUsername, "new", authUsername)
+		dbr.AuthUsername = authUsername
+		isAuthUsernameUpdateNeeded = true
+	}
+
+	var isAuthPasswordUpdateNeeded bool
+	if authPassword != dbr.AuthPassword {
+		l.Info("AuthPassword changed", "old", dbr.AuthPassword, "new", authPassword)
+		dbr.AuthPassword = authPassword
+		isAuthPasswordUpdateNeeded = true
+	}
+
+	var isAuthSSHKeyUpdateNeeded bool
+	if authSSHKey != dbr.AuthSSHKey {
+		l.Info("AuthSSHKey changed", "old", dbr.AuthSSHKey, "new", authSSHKey)
+		dbr.AuthSSHKey = authSSHKey
+		isAuthSSHKeyUpdateNeeded = true
+	}
+
+	return isSecretUpdateNeeded || isRepoUpdateNeeded || isAuthUsernameUpdateNeeded || isAuthPasswordUpdateNeeded || isAuthSSHKeyUpdateNeeded
 }
 
 func internalProcessMessage_GetGitopsEngineInstanceById(ctx context.Context, id string, dbq db.DatabaseQueries) (*db.GitopsEngineInstance, error) {
