@@ -498,7 +498,7 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		if apierr.IsNotFound(err) {
 
 			// Σε αυτό το σημείο πρέπει να ψάξω και να βρω την κατάλληλη εγγραφή στη βάση δεδομένων
-			apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
+			var apiCRToDBMappingList []db.APICRToDatabaseMapping
 			if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(
 				ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
 				repositoryCredentialCRName,
@@ -570,6 +570,10 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		return nil, vErr
 	}
 
+	l.Info("CR found", "CR Name", cr, "Namespace", ns)
+	l.Info("gitopsDeploymentRepositoryCredentialCR", "gitopsDeploymentRepositoryCredentialCR", gitopsDeploymentRepositoryCredentialCR)
+	l.Info("UID", "UID", gitopsDeploymentRepositoryCredentialCR.GetUID())
+
 	// 3. If gitopsDeploymentRepositoryCredentialCR exists in the cluster,
 	// check the DB to see if the related RepositoryCredential row exists as well
 
@@ -607,8 +611,13 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 	var apiCRToDBList []db.APICRToDatabaseMapping
 	mapping := db.APICRToDatabaseMapping{
 		APIResourceType: db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
-		APIResourceUID:  string(repositoryCredentialCRNamespace.GetUID()),
-		DBRelationType:  db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
+		// APIResourceUID:       string(repositoryCredentialCRNamespace.GetUID()),
+		APIResourceUID: string(gitopsDeploymentRepositoryCredentialCR.UID),
+		//APIResourceName:      "",
+		//APIResourceNamespace: "",
+		//NamespaceUID:         "",
+		DBRelationType: db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
+		// DBRelationKey:        "",
 	}
 
 	l.Info("Getting mapping for GitOpsDeploymentRepositoryCredential")
@@ -620,6 +629,7 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 			l.Info("unable to resource mapping", "uid", string(repositoryCredentialCRNamespace.UID))
 			return nil, err
 		} else {
+			l.Info("Since DB was not found, we create the DB Row now")
 			// If the CR exists in the cluster but not in the DB, then create it in the DB and create an Operation.
 			dbRepoCred := db.RepositoryCredentials{
 				RepositoryCredentialsID: gitopsDeploymentRepositoryCredentialCR.Name,
@@ -638,12 +648,16 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 				l.WithValues("Error", err, "DebugErr", errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
 				err2 := fmt.Errorf("unable to create repository credential in the database: %v", err)
 				return nil, err2
+			} else {
+				l.Info("Created RepositoryCredential in the DB", "repositoryCredential", dbRepoCred)
 			}
 
 			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
 			if err != nil {
 				return nil, err
 			}
+
+			apiCRToDBList = append(apiCRToDBList, mapping)
 
 			return &dbRepoCred, nil
 		}

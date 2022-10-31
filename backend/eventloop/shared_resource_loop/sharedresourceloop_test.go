@@ -347,6 +347,7 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-gitopsdeploymenrepositorycredential",
 					Namespace: gitopsEngineInstance.Namespace_name,
+					UID:       uuid.NewUUID(),
 				},
 				Spec: managedgitopsv1alpha1.GitOpsDeploymentRepositoryCredentialSpec{
 					Repository: "https://fakegithub.com/test/test-repository",
@@ -393,7 +394,7 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			Expect(err).To(BeNil())
 			Expect(dbRepoCred).NotTo(BeNil())
 			var operationDB db.Operation
-			operationDB.Resource_id = dbRepoCred.RepositoryCredentialsID
+			var operations []db.Operation
 
 			// Verify there is one Operation CR created and find its matching DB Entry
 			operationList := &managedgitopsv1alpha1.OperationList{}
@@ -403,39 +404,58 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			//if len(operationList.Items) == 1 {
 			//	operationDB.Operation_id = operationList.Items[0].Spec.OperationID
 			//}
-			l.Info("operationList.Items", "operationList.Items", operationList.Items)
 
-			err = dbq.GetOperationById(ctx, &operationDB)
+			primaryKey := dbRepoCred.RepositoryCredentialsID
+			err = dbq.ListOperationsByResourceIdAndTypeAndOwnerId(ctx, primaryKey, db.OperationResourceType_RepositoryCredentials, &operations, usrNew.Clusteruser_id)
 			Expect(err).To(BeNil())
+			l.Info("Operations", "operations", operations)
+			l.Info("Count", "count", len(operations))
+
+			// Verify the Operation CR and DB Entry are the same
+			Expect(len(operations)).To(Equal(1))
+			operationDB = operations[0]
+
+			l.Info("TEST: Get Operation State", "operation", operationDB)
 			Expect(operationDB.State).Should(Equal(db.OperationState_Waiting))
 
 			// Fetch the RepositoryCredential DB row using information provided by the Operation
 			// this is how the cluster-agent will find the RepositoryCredential DB row
 			// and verify that this db row is the same with the output of the internalProcessMessage_ReconcileRepositoryCredential()
+			l.Info("Get the RepositoryCredential DB row using the operationDB.Resource_id", "operation Resource ID", operationDB.Resource_id)
 			fetch, err := dbq.GetRepositoryCredentialsByID(ctx, operationDB.Resource_id)
 			Expect(err).To(BeNil())
+			l.Info("DB Row Fetched", "fetch", fetch)
+			l.Info("DB Row Original", "dbRepoCred", dbRepoCred)
 			Expect(fetch).Should(Equal(*dbRepoCred))
 
 			// Re-running should not error
+			l.Info("Re-running the internalProcessMessage_ReconcileRepositoryCredential()")
 			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
-			Expect(fetch).Should(Equal(*dbRepoCred))
 			Expect(err).To(BeNil())
+			Expect(dbRepoCred).NotTo(BeNil())
 
 			// Check if there are any operations left (should be 1)
-			operationList = &managedgitopsv1alpha1.OperationList{}
-			err = k8sClient.List(ctx, operationList)
+			primaryKey = dbRepoCred.RepositoryCredentialsID
+			err = dbq.ListOperationsByResourceIdAndTypeAndOwnerId(ctx, primaryKey, db.OperationResourceType_RepositoryCredentials, &operations, usrNew.Clusteruser_id)
 			Expect(err).To(BeNil())
-			Expect(len(operationList.Items)).Should(Equal(1))
+			l.Info("Operations", "operations", operations)
+			l.Info("Count", "count", len(operations))
 
-			// Fetch the operation db
-			operationDB.Operation_id = operationList.Items[0].Spec.OperationID
-			err = dbq.GetOperationById(ctx, &operationDB)
-			Expect(err).To(BeNil())
+			// Verify the Operation CR and DB Entry are the same
+			Expect(len(operations)).To(Equal(1))
+			operationDB = operations[0]
+
+			l.Info("DB Row Fetched", "fetch", fetch)
+			l.Info("DB Row Original", "dbRepoCred", dbRepoCred)
+			Expect(fetch).Should(Equal(*dbRepoCred))
+
+			l.Info("TEST: Get Operation State", "operation", operationDB)
 			Expect(operationDB.State).Should(Equal(db.OperationState_Waiting))
 
 			// Modify the repository credential database, pointing to a wrong secret
 			// Expected: The diff should be detected and roll-back to what the GitOpsDeploymentRepositoryCredential CR has (source of truth)
 			// also it should fire-up an operation to fix this
+			l.Info("Modify the repository credential database, pointing to a wrong secret")
 			dbRepoCred.SecretObj = "test-secret-2"
 			err = dbq.UpdateRepositoryCredentials(ctx, dbRepoCred)
 			Expect(err).To(BeNil())
