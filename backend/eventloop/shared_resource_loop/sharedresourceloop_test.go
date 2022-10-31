@@ -400,9 +400,10 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			err = k8sClient.List(ctx, operationList)
 			Expect(err).To(BeNil())
 
-			if len(operationList.Items) == 1 {
-				operationDB.Operation_id = operationList.Items[0].Spec.OperationID
-			}
+			//if len(operationList.Items) == 1 {
+			//	operationDB.Operation_id = operationList.Items[0].Spec.OperationID
+			//}
+			l.Info("operationList.Items", "operationList.Items", operationList.Items)
 
 			err = dbq.GetOperationById(ctx, &operationDB)
 			Expect(err).To(BeNil())

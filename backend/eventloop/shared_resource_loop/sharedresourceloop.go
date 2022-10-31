@@ -603,22 +603,60 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		secretObj = secret.Name
 	}
 
-	apiCRToDBMappingList := []db.APICRToDatabaseMapping{}
-	if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(
-		ctx, db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
-		repositoryCredentialCRName,
-		repositoryCredentialCRNamespace.Name,
-		string(repositoryCredentialCRNamespace.GetUID()),
-		db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
-		&apiCRToDBMappingList); err != nil {
-
-		return nil, fmt.Errorf("unable to list APICRs for repository credentials: %v", err)
+	// Εδω ------
+	var apiCRToDBList []db.APICRToDatabaseMapping
+	mapping := db.APICRToDatabaseMapping{
+		APIResourceType: db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+		APIResourceUID:  string(repositoryCredentialCRNamespace.GetUID()),
+		DBRelationType:  db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
 	}
-	l.Info("APICRToDatabaseMapping list", "list", apiCRToDBMappingList)
+
+	l.Info("Getting mapping for GitOpsDeploymentRepositoryCredential")
+	if err := dbQueries.GetDatabaseMappingForAPICR(ctx, &mapping); err != nil {
+		l.Info("Error getting mapping for GitOpsDeploymentRepositoryCredential")
+		l.Info("err", "error", err)
+		if !db.IsResultNotFoundError(err) {
+			// A generic error occured, so just return
+			l.Info("unable to resource mapping", "uid", string(repositoryCredentialCRNamespace.UID))
+			return nil, err
+		} else {
+			// If the CR exists in the cluster but not in the DB, then create it in the DB and create an Operation.
+			dbRepoCred := db.RepositoryCredentials{
+				RepositoryCredentialsID: gitopsDeploymentRepositoryCredentialCR.Name,
+				UserID:                  clusterUser.Clusteruser_id, // comply with the constraint 'fk_clusteruser_id'
+				PrivateURL:              privateURL,                 // or gitopsDeploymentRepositoryCredentialCR.Spec.Repository?
+				AuthUsername:            authUsername,
+				AuthPassword:            authPassword,
+				AuthSSHKey:              authSSHKey,
+				SecretObj:               secretObj,
+				EngineClusterID:         gitopsEngineInstance.Gitopsengineinstance_id, // comply with the constraint 'fk_gitopsengineinstance_id',
+			}
+
+			err = dbQueries.CreateRepositoryCredentials(ctx, &dbRepoCred)
+
+			if err != nil {
+				l.WithValues("Error", err, "DebugErr", errCreateDBRepoCred, "CR Name", cr, "Namespace", ns)
+				err2 := fmt.Errorf("unable to create repository credential in the database: %v", err)
+				return nil, err2
+			}
+
+			err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+			if err != nil {
+				return nil, err
+			}
+
+			return &dbRepoCred, nil
+		}
+	} else {
+		// Match found in database
+		apiCRToDBList = append(apiCRToDBList, mapping)
+	}
+
+	l.Info("apiCRToDBList list", "list", apiCRToDBList)
 
 	var dbRepoCred db.RepositoryCredentials
 	l.Info("Before the loop")
-	for _, item := range apiCRToDBMappingList {
+	for _, item := range apiCRToDBList {
 		l.Info("In the loop")
 		repositoryCredentialPrimaryKey := item.DBRelationKey
 		var err2 error
@@ -684,9 +722,9 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 	}
 	l.Info("After the loop")
 
-	if len(apiCRToDBMappingList) == 1 {
+	if len(apiCRToDBList) == 1 {
 		return &dbRepoCred, nil
-	} else if len(apiCRToDBMappingList) > 1 {
+	} else if len(apiCRToDBList) > 1 {
 		return nil, fmt.Errorf("more than one repository credentials found in the database for the same CR")
 	} else {
 		return nil, fmt.Errorf("no repository credentials found in the database for the CR")
