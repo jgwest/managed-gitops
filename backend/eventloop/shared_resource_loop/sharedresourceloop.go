@@ -519,6 +519,7 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 				return nil, nil
 			} else {
 				for _, item := range apiCRToDBMappingList {
+					item := item // reassign the iteration variable inside the loop to fix G601 (CWE-118) issue
 					repositoryCredentialPrimaryKey := item.APIResourceName
 					dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)
 
