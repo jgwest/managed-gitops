@@ -32,11 +32,18 @@ spec:
                   app.kubernetes.io/part-of: argocd
               topologyKey: kubernetes.io/hostname
             weight: 5
-      automountServiceAccountToken: true
+      ## Disable auto-mounting SA token: we don't use/want the SA token from the workload cluster. 
+      automountServiceAccountToken: false
       containers:
       - command:
         - argocd-application-controller
+        - --kubeconfig
+        - /kcp-kubeconfig/kcp-kubeconfig
         env:
+        - name: ARGOCD_FAKE_IN_CLUSTER
+          value: "true"
+        - name: KUBECONFIG
+          value: /kcp-kubeconfig/kcp-kubeconfig
         - name: ARGOCD_CONTROLLER_REPLICAS
           value: "1"
         - name: ARGOCD_RECONCILIATION_TIMEOUT
@@ -159,9 +166,17 @@ spec:
           name: argocd-repo-server-tls
         - mountPath: /home/argocd
           name: argocd-home
+        - mountPath: /kcp-kubeconfig
+          name: kcp-kubeconfig
         workingDir: /home/argocd
-      serviceAccountName: argocd-application-controller
+      # serviceAccountName: argocd-application-controller
       volumes:
+      - name: kcp-kubeconfig
+        secret:
+          secretName: kcp-kubeconfig-controller
+          items:
+          - key: kubeconfig
+            path: kcp-kubeconfig
       - emptyDir: {}
         name: argocd-home
       - name: argocd-repo-server-tls

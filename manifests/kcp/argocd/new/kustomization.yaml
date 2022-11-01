@@ -4,8 +4,6 @@ resources:
 - applications.argoproj.io-crd.yaml
 - applicationsets.argoproj.io-crd.yaml
 - appprojects.argoproj.io-crd.yaml
-- argocd-application-controller-cr.yaml
-- argocd-application-controller-crb.yaml
 - argocd-application-controller-rb.yaml
 - argocd-application-controller-role.yaml
 - argocd-application-controller-sa.yaml
