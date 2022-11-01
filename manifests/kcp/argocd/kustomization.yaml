@@ -3,7 +3,8 @@ kind: Kustomization
 
 resources:
 - argo-cd-namespace.yaml
-- install-argocd.yaml
+- new/
+#install-argocd.yaml
 
 namespace: gitops-service-argocd
 
