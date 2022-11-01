@@ -496,7 +496,8 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 		l.Info("Error getting the CR")
 		// If the CR is not found, then we can assume it was deleted
 		if apierr.IsNotFound(err) {
-
+			l.Info("CR not found")
+			l.Info("Look for DB Row if this exists")
 			// Σε αυτό το σημείο πρέπει να ψάξω και να βρω την κατάλληλη εγγραφή στη βάση δεδομένων
 			var apiCRToDBMappingList []db.APICRToDatabaseMapping
 			if err := dbQueries.ListAPICRToDatabaseMappingByAPINamespaceAndName(
@@ -513,56 +514,62 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 			// Σε αυτό το σημείο έχουμε ήδη ένα working Mapping το οποιό μπορεί να περιέχει μία ή
 			// και περισσότερες εγγραφές στη βάση δεδομένων
 
-			for _, item := range apiCRToDBMappingList {
-				repositoryCredentialPrimaryKey := item.DBRelationKey
-				dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)
+			if len(apiCRToDBMappingList) == 0 {
+				l.Info("No DB Row found. Nothing to do")
+				return nil, nil
+			} else {
+				for _, item := range apiCRToDBMappingList {
+					repositoryCredentialPrimaryKey := item.APIResourceName
+					dbRepoCred, err2 := dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)
 
-				if err2 != nil {
-					// Analyze the error: Does it mean it is deleted (not found) or it's a glitch?
-					if strings.Contains(err2.Error(), errDBNotFound) {
-						l.Info("DB entry not found")
-						l.Info("No leftovers. Nothing to do")
-						// The CR is not found in the database, so it is already deleted
+					if err2 != nil {
+						// Analyze the error: Does it mean it is deleted (not found) or it's a glitch?
+						if strings.Contains(err2.Error(), errDBNotFound) {
+							l.Info("DB entry not found")
+							l.Info("No leftovers. Nothing to do")
+							// The CR is not found in the database, so it is already deleted
+							return nil, nil
+						}
+
+						// It's a glitch, so return the error
+						l.Info("Error getting repo cred from DB")
+						return nil, fmt.Errorf("unable to retrieve repository credential from the database: %v", err2)
+					} else {
+						l.Info("[Leftover] RepositoryCredential row found in DB")
+						if _, err := deleteRepoCredFromDB(ctx, dbQueries, repositoryCredentialCRName, l); err != nil {
+							return nil, err
+						}
+						l.Info("RepositoryCredential row deleted from DB")
+
+						// We need to fire-up an Operation as well
+						l.Info("Creating an Operation for the deleted RepositoryCredential DB row")
+						err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
+						if err != nil {
+							l.Info("Error creating an Operation for the deleted RepositoryCredential DB row")
+							return nil, err
+						}
+						l.Info("Operation created for the deleted RepositoryCredential DB row")
+
+						// - Delete the APICRToDatabaseMapping referenced by 'item'
+						rowsDeleted, err := dbQueries.DeleteAPICRToDatabaseMapping(ctx, &item)
+						if err != nil {
+							l.Info("unable to delete apiCRToDBmapping", "mapping", item.APIResourceUID)
+							return nil, err
+						} else if rowsDeleted == 0 {
+							l.Info("unexpected number of rows deleted of apiCRToDBmapping", "mapping", item.APIResourceUID)
+						} else {
+							l.Info("Deleted APICRToDatabaseMapping")
+						}
+
+						// Success
 						return nil, nil
 					}
 
-					// It's a glitch, so return the error
-					l.Info("Error getting repo cred from DB")
-					return nil, fmt.Errorf("unable to retrieve repository credential from the database: %v", err2)
-				} else {
-					l.Info("[Leftover] RepositoryCredential row found in DB")
-					if _, err := deleteRepoCredFromDB(ctx, dbQueries, repositoryCredentialCRName, l); err != nil {
-						return nil, err
-					}
-					l.Info("RepositoryCredential row deleted from DB")
-
-					// We need to fire-up an Operation as well
-					l.Info("Creating an Operation for the deleted RepositoryCredential DB row")
-					err = createRepoCredOperation(ctx, l, dbRepoCred, clusterUser, ns, dbQueries, apiNamespaceClient)
-					if err != nil {
-						l.Info("Error creating an Operation for the deleted RepositoryCredential DB row")
-						return nil, err
-					}
-					l.Info("Operation created for the deleted RepositoryCredential DB row")
-
-					// - Delete the APICRToDatabaseMapping referenced by 'item'
-					rowsDeleted, err := dbQueries.DeleteAPICRToDatabaseMapping(ctx, &item)
-					if err != nil {
-						l.Info("unable to delete apiCRToDBmapping", "mapping", item.APIResourceUID)
-						return nil, err
-					} else if rowsDeleted == 0 {
-						l.Info("unexpected number of rows deleted of apiCRToDBmapping", "mapping", item.APIResourceUID)
-					} else {
-						l.Info("Deleted APICRToDatabaseMapping")
-					}
-
-					// Success
-					return nil, nil
 				}
-
 			}
 
 		}
+		l.Info("Some other error with the CR")
 
 		// Something went wrong, retry
 		l.WithValues("Error", err, "DebugErr", errGenericCR, "CR Name", cr, "Namespace", ns)
@@ -656,8 +663,40 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
+			l.Info("Created Operation for RepositoryCredential")
 
+			// Create the mapping
 			apiCRToDBList = append(apiCRToDBList, mapping)
+			var operationDB db.Operation
+			var o []db.Operation
+			primaryKey := dbRepoCred.RepositoryCredentialsID
+			err = dbQueries.ListOperationsByResourceIdAndTypeAndOwnerId(ctx, primaryKey, db.OperationResourceType_RepositoryCredentials, &o, clusterUser.Clusteruser_id)
+			if err != nil {
+				l.Info("Error getting operation for RepositoryCredential Operation")
+				l.Info("err", "error", err)
+				return nil, err
+			}
+			operationDB = o[0]
+
+			newApiCRToDBMapping := db.APICRToDatabaseMapping{
+				APIResourceType: db.APICRToDatabaseMapping_ResourceType_GitOpsDeploymentRepositoryCredential,
+				// APIResourceUID:
+				APIResourceUID:       string(gitopsDeploymentRepositoryCredentialCR.UID),
+				DBRelationType:       db.APICRToDatabaseMapping_DBRelationType_RepositoryCredential,
+				DBRelationKey:        operationDB.Operation_id,
+				APIResourceName:      cr,
+				APIResourceNamespace: ns,
+				NamespaceUID:         string(repositoryCredentialCRNamespace.GetUID()),
+			}
+
+			if err := dbQueries.CreateAPICRToDatabaseMapping(ctx, &newApiCRToDBMapping); err != nil {
+				l.Info("Error", "error", err, "Debug:", "unable to create api to db mapping in database")
+
+				// If we were unable to retrieve the client, delete the resources we created in the previous steps
+
+				return nil, err
+			}
+			l.Info(fmt.Sprintf("Created a ApiCRToDBMapping: (APIResourceType: %s, APIResourceUID: %s, DBRelationType: %s)", newApiCRToDBMapping.APIResourceType, newApiCRToDBMapping.APIResourceUID, newApiCRToDBMapping.DBRelationType))
 
 			return &dbRepoCred, nil
 		}
@@ -672,7 +711,7 @@ func internalProcessMessage_ReconcileRepositoryCredential(ctx context.Context,
 	l.Info("Before the loop")
 	for _, item := range apiCRToDBList {
 		l.Info("In the loop")
-		repositoryCredentialPrimaryKey := item.DBRelationKey
+		repositoryCredentialPrimaryKey := item.APIResourceName
 		var err2 error
 		l.Info("Primary Key", "key", repositoryCredentialPrimaryKey)
 		dbRepoCred, err2 = dbQueries.GetRepositoryCredentialsByID(ctx, repositoryCredentialPrimaryKey)

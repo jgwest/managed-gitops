@@ -459,6 +459,7 @@ var _ = Describe("SharedResourceEventLoop Test", func() {
 			dbRepoCred.SecretObj = "test-secret-2"
 			err = dbq.UpdateRepositoryCredentials(ctx, dbRepoCred)
 			Expect(err).To(BeNil())
+
 			dbRepoCred, err = internalProcessMessage_ReconcileRepositoryCredential(ctx, cr.Name, repositoryCredentialCRNamespace, k8sClient, k8sClientFactory, dbq, l)
 			Expect(err).To(BeNil())
 			Expect(dbRepoCred).ToNot(BeNil())
