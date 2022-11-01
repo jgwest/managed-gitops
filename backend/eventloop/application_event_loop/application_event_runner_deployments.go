@@ -99,7 +99,6 @@ func (a *applicationEventLoopRunner_Action) applicationEventRunner_handleDeploym
 				// Not found, so set gitopsDeployment to nil
 				gitopsDeployment = nil
 			} else {
-
 				userError := "unable to retrieve the GitOpsDeployment object from the namespace, due to unknown error."
 				a.log.Error(err, "unable to locate object in handleDeploymentModified", "request", gitopsDeploymentKey)
 				return signalledShutdown_false, nil, nil, deploymentModifiedResult_Failed, gitopserrors.NewUserDevError(userError, err)
@@ -868,10 +867,10 @@ type gitOpsDeploymentAdapter struct {
 }
 
 // newGitOpsDeploymentAdapter returns an initialized gitOpsDeploymentAdapter
-func newGitOpsDeploymentAdapter(gitopsDeployment *managedgitopsv1alpha1.GitOpsDeployment, logger logr.Logger, client client.Client, manager condition.Conditions, ctx context.Context) *gitOpsDeploymentAdapter {
+func newGitOpsDeploymentAdapter(gitopsDeployment *managedgitopsv1alpha1.GitOpsDeployment, l logr.Logger, client client.Client, manager condition.Conditions, ctx context.Context) *gitOpsDeploymentAdapter {
 	return &gitOpsDeploymentAdapter{
 		gitOpsDeployment: gitopsDeployment,
-		logger:           logger,
+		logger:           l,
 		client:           client,
 		conditionManager: manager,
 		ctx:              ctx,

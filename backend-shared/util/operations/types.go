@@ -24,16 +24,16 @@ const (
 
 func CreateOperation(ctx context.Context, waitForOperation bool, dbOperationParam db.Operation, clusterUserID string,
 	operationNamespace string, dbQueries db.ApplicationScopedQueries, gitopsEngineClient client.Client,
-	logger logr.Logger) (*managedgitopsv1alpha1.Operation, *db.Operation, error) {
+	l logr.Logger) (*managedgitopsv1alpha1.Operation, *db.Operation, error) {
 	var err error
-	logger = logger.WithValues("Operation GitOpsEngineInstanceID", dbOperationParam.Instance_id,
+	l.WithValues("Operation GitOpsEngineInstanceID", dbOperationParam.Instance_id,
 		"Operation ResourceID", dbOperationParam.Resource_id,
 		"Operation ResourceType", dbOperationParam.Resource_type,
 		"Operation OwnerUserID", clusterUserID,
 	)
 	var dbOperationList []db.Operation
 	if err = dbQueries.ListOperationsByResourceIdAndTypeAndOwnerId(ctx, dbOperationParam.Resource_id, dbOperationParam.Resource_type, &dbOperationList, clusterUserID); err != nil {
-		logger.Error(err, "unable to fetch list of Operations")
+		l.Error(err, "unable to fetch list of Operations")
 		// We intentionally don't return here: if we were unable to fetch the list,
 		// then we will create an Operation as usual (and it might be duplicate, but that's fine)
 	}
@@ -57,13 +57,13 @@ func CreateOperation(ctx context.Context, waitForOperation bool, dbOperationPara
 		}
 
 		if err = gitopsEngineClient.Get(ctx, client.ObjectKeyFromObject(&k8sOperation), &k8sOperation); err != nil {
-			logger.Error(err, "unable to fetch existing Operation from cluster.", "Operation k8s Name", k8sOperation.Name)
+			l.Error(err, "unable to fetch existing Operation from cluster.", "Operation k8s Name", k8sOperation.Name)
 			// We intentionally don't return here: we keep going through the list, even if an error occurs.
 			// Only one needs to match.
 		} else {
 			// An operation already exists in waiting state, and the Operation CR for it still exists, so we don't need to create
 			// a new operation.
-			logger.Info("Skipping Operation creation, as it already exists for resource.", "existingOperationState", string(dbOperation.State))
+			l.Info("Skipping Operation creation, as it already exists for resource.", "existingOperationState", string(dbOperation.State))
 			return &k8sOperation, &dbOperation, nil
 		}
 	}
@@ -80,10 +80,10 @@ func CreateOperation(ctx context.Context, waitForOperation bool, dbOperationPara
 	}
 
 	if err := dbQueries.CreateOperation(ctx, &dbOperation, clusterUserID); err != nil {
-		logger.Error(err, "Unable to create Operation database row")
+		l.Error(err, "Unable to create Operation database row")
 		return nil, nil, err
 	}
-	logger.Info("Created Operation database row")
+	l.Info("Created Operation database row")
 
 	// Create K8s operation
 	operation := managedgitopsv1alpha1.Operation{
@@ -102,21 +102,21 @@ func CreateOperation(ctx context.Context, waitForOperation bool, dbOperationPara
 	}
 
 	if err := gitopsEngineClient.Create(ctx, &operation, &client.CreateOptions{}); err != nil {
-		logger.Error(err, "Unable to create K8s Operation")
+		l.Error(err, "Unable to create K8s Operation")
 		return nil, nil, err
 	}
-	logger.Info("Created K8s Operation CR")
+	l.Info("Created K8s Operation CR")
 
 	// Wait for operation to complete.
 	if waitForOperation {
-		logger.V(sharedutil.LogLevel_Debug).Info("Waiting for Operation to complete")
+		l.V(sharedutil.LogLevel_Debug).Info("Waiting for Operation to complete")
 
-		if err = waitForOperationToComplete(ctx, &dbOperation, dbQueries, logger); err != nil {
-			logger.Error(err, "operation did not complete", "operation", dbOperation.Operation_id, "namespace", operation.Namespace)
+		if err = waitForOperationToComplete(ctx, &dbOperation, dbQueries, l); err != nil {
+			l.Error(err, "operation did not complete", "operation", dbOperation.Operation_id, "namespace", operation.Namespace)
 			return nil, nil, err
 		}
 
-		logger.Info("Operation completed", "operation", fmt.Sprintf("%v", operation.Spec.OperationID))
+		l.Info("Operation completed", "operation", fmt.Sprintf("%v", operation.Spec.OperationID))
 	}
 
 	return &operation, &dbOperation, nil
