@@ -465,10 +465,11 @@ type RepositoryCredentials struct {
 }
 
 // hasEmptyValues returns error if any of the notnull tagged fields are empty.
-func (rc *RepositoryCredentials) hasEmptyValues() error {
+func (rc *RepositoryCredentials) hasEmptyValues(fieldNamesToIgnore ...string) error {
 	s := reflect.ValueOf(rc).Elem()
 	typeOfObj := s.Type()
 
+outer_for:
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		tag := typeOfObj.Field(i).Tag.Get("pg")
@@ -477,6 +478,14 @@ func (rc *RepositoryCredentials) hasEmptyValues() error {
 		if strings.Contains(tag, "notnull") {
 			if f.Interface() == reflect.Zero(f.Type()).Interface() {
 				fieldName := typeOfObj.Field(i).Name
+
+				// If the field is on the list of fields to ignore, then skip to the next field on match.
+				for _, fieldNameToIgnore := range fieldNamesToIgnore {
+					if fieldName == fieldNameToIgnore {
+						continue outer_for
+					}
+				}
+
 				return fmt.Errorf("%s.%s is empty, but it shouldn't (notnull tag found: `%s`)", typeOfObj.Name(), fieldName, tag)
 			}
 		}

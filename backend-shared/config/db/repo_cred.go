@@ -15,12 +15,23 @@ var (
 )
 
 func (dbq *PostgreSQLDatabaseQueries) CreateRepositoryCredentials(ctx context.Context, obj *RepositoryCredentials) error {
-	if err := validateQueryParamsEntity(obj, dbq); err != nil {
+
+	if dbq.allowTestUuids {
+		if IsEmpty(obj.RepositoryCredentialsID) {
+			obj.RepositoryCredentialsID = generateUuid()
+		}
+	} else {
+		if !IsEmpty(obj.RepositoryCredentialsID) {
+			return fmt.Errorf("primary key should be empty")
+		}
+
+		obj.RepositoryCredentialsID = generateUuid()
+	}
+
+	if err := obj.hasEmptyValues("RepositoryCredentialsID"); err != nil {
 		return err
 	}
-	if err := obj.hasEmptyValues(); err != nil {
-		return err
-	}
+
 	result, err := dbq.dbConnection.Model(obj).Context(ctx).Insert()
 	if err != nil {
 		return fmt.Errorf("%v: %w", errCreateRepositoryCredentials, err)
