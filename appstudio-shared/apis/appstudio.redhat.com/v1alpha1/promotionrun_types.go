@@ -61,7 +61,7 @@ type PromotionRunStatus struct {
 	// CompletionResult will only have a value if State field is 'Complete'.
 	CompletionResult PromotionRunCompleteResult `json:"completionResult,omitempty"`
 
-	// EnvironmentStatus represents the set of steps taken during the  current promotion
+	// EnvironmentStatus represents the set of steps taken during the current promotion
 	EnvironmentStatus []PromotionRunEnvironmentStatus `json:"environmentStatus,omitempty"`
 
 	// ActiveBindings is the list of active bindings currently being promoted to:
