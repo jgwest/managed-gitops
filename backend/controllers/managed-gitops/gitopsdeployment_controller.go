@@ -50,16 +50,19 @@ func (r *GitOpsDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	ctx = sharedutil.AddKCPClusterToContext(ctx, req.ClusterName)
 	_ = log.FromContext(ctx)
 
+	rClient := sharedutil.IfEnabledSimulateUnreliableClient(r.Client)
+
 	namespace := v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: req.Namespace,
 		},
 	}
-	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(&namespace), &namespace); err != nil {
+	if err := rClient.Get(ctx, client.ObjectKeyFromObject(&namespace), &namespace); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	r.PreprocessEventLoop.EventReceived(req, eventlooptypes.GitOpsDeploymentTypeName, r.Client, eventlooptypes.DeploymentModified, string(namespace.UID))
+	r.PreprocessEventLoop.EventReceived(req, eventlooptypes.GitOpsDeploymentTypeName, rClient, eventlooptypes.DeploymentModified,
+		string(namespace.UID))
 
 	return ctrl.Result{}, nil
 }

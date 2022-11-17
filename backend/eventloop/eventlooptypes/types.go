@@ -213,7 +213,10 @@ func GetK8sClientForServiceWorkspace() (client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: Places like this, where we are calling client.New, should also be wrapped with a ChaosClient
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme})
+	k8sClient = sharedutil.IfEnabledSimulateUnreliableClient(k8sClient)
 	if err != nil {
 		return nil, err
 	}
