@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kcp-dev/logicalcluster/v2"
 	sharedutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util"
 	"github.com/redhat-appstudio/managed-gitops/backend/eventloop/eventlooptypes"
 	"github.com/redhat-appstudio/managed-gitops/backend/eventloop/shared_resource_loop"
@@ -384,15 +383,16 @@ func startNewStatusUpdateTimer(ctx context.Context, k8sClient client.Client, inp
 	statusUpdateTimer := time.NewTimer(deploymentStatusTickRate + jitter)
 
 	go func() {
-		clusterName, _ := logicalcluster.ClusterFromContext(ctx)
+		// clusterName, _ := logicalcluster.ClusterFromContext(ctx)
+		// clusterName := "meow"
 
 		<-statusUpdateTimer.C
 		tickMessage := RequestMessage{
 			Message: eventlooptypes.EventLoopMessage{
 				Event: &eventlooptypes.EventLoopEvent{
 					EventType: eventlooptypes.UpdateDeploymentStatusTick,
-					Request: reconcile.Request{
-						ClusterName: clusterName.String(),
+					Request:   reconcile.Request{
+						// ClusterName: clusterName,
 					},
 					Client: k8sClient,
 				},

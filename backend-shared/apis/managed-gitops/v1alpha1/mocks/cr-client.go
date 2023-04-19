@@ -96,7 +96,7 @@ func (mr *MockClientMockRecorder) DeleteAllOf(arg0, arg1 any, arg2 ...any) *gomo
 }
 
 // Get mocks base method.
-func (m *MockClient) Get(arg0 context.Context, arg1 types.NamespacedName, arg2 client.Object) error {
+func (m *MockClient) Get(arg0 context.Context, arg1 types.NamespacedName, arg2 client.Object,  meow ...client.GetOption) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -104,7 +104,7 @@ func (m *MockClient) Get(arg0 context.Context, arg1 types.NamespacedName, arg2 c
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2 any, meow ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClient)(nil).Get), arg0, arg1, arg2)
 }

@@ -56,7 +56,7 @@ func IfEnabledSimulateUnreliableClient(kClient client.Client) client.Client {
 // Get retrieves an obj for the given object key from the Kubernetes Cluster.
 // obj must be a struct pointer so that obj can be updated with the response
 // returned by the Server.
-func (pc *ChaosClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (pc *ChaosClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 
 	if err := shouldSimulateFailure("Get", obj); err != nil {
 		return err

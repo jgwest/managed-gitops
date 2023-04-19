@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	appstudioshared "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	sharedutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,7 +47,6 @@ type SnapshotReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = sharedutil.AddKCPClusterToContext(ctx, req.ClusterName)
 	_ = log.FromContext(ctx)
 
 	fmt.Println("Snapshot event: ", req)

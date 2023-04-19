@@ -68,7 +68,6 @@ type SnapshotEnvironmentBindingReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = sharedutil.AddKCPClusterToContext(ctx, req.ClusterName)
 
 	log := log.FromContext(ctx).WithValues("name", req.Name, "namespace", req.Namespace, "component", "bindingReconcile")
 	defer log.V(sharedutil.LogLevel_Debug).Info("Snapshot Environment Binding Reconcile() complete.")

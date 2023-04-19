@@ -61,7 +61,6 @@ type EnvironmentReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = sharedutil.AddKCPClusterToContext(ctx, req.ClusterName)
 	log := log.FromContext(ctx).WithValues("request", req)
 
 	rClient := sharedutil.IfEnabledSimulateUnreliableClient(r.Client)

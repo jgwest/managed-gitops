@@ -53,7 +53,6 @@ type GitOpsDeploymentManagedEnvironmentReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.2/pkg/reconcile
 func (r *GitOpsDeploymentManagedEnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	ctx = sharedutil.AddKCPClusterToContext(ctx, req.ClusterName)
 	_ = log.FromContext(ctx)
 
 	rClient := sharedutil.IfEnabledSimulateUnreliableClient(r.Client)

@@ -95,7 +95,7 @@ func applicationEventLoopRunner(inputChannel chan *eventlooptypes.EventLoopEvent
 
 		ctx, cancel := context.WithCancel(outerContext)
 
-		ctx = sharedutil.AddKCPClusterToContext(ctx, newEvent.Request.ClusterName)
+		// ctx = sharedutil.AddKCPClusterToContext(ctx, newEvent.Request.ClusterName)
 
 		defer cancel()
 

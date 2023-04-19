@@ -8,25 +8,18 @@ import (
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/kcp"
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 
 	gitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend-shared/apis/managed-gitops/v1alpha1"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
 
-	datav1alpha1 "github.com/kcp-dev/controller-runtime-example/api/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v2"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -45,10 +38,8 @@ func IsRunningAgainstKCP() bool {
 
 // GetControllerManager returns a manager for running controllers
 func GetControllerManager(ctx context.Context, cfg *rest.Config, log *logr.Logger, apiExportName string, opts ctrl.Options) (ctrl.Manager, error) {
+
 	scheme := runtime.NewScheme()
-	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error adding apis.kcp.dev/v1alpha1 to scheme: %w", err)
-	}
 
 	apiExportClient, err := client.New(cfg, client.Options{Scheme: scheme})
 	apiExportClient = IfEnabledSimulateUnreliableClient(apiExportClient)
@@ -104,11 +95,11 @@ func getControllerManager(ctx context.Context, restConfig *rest.Config, apiExpor
 
 		log.Info("Using virtual workspace URL", "url", cfg.Host)
 
-		opts.LeaderElectionConfig = restConfig
-		mgr, err = kcp.NewClusterAwareManager(cfg, opts)
-		if err != nil {
-			return nil, fmt.Errorf("unable to start cluster aware manager: %w", err)
-		}
+		// opts.LeaderElectionConfig = restConfig
+		// mgr, err = kcp.NewClusterAwareManager(cfg, opts)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("unable to start cluster aware manager: %w", err)
+		// }
 
 	} else {
 		log.Info("The apis.kcp.dev group is not present - creating standard manager")
@@ -125,52 +116,52 @@ func getControllerManager(ctx context.Context, restConfig *rest.Config, apiExpor
 // APIExport's virtual workspace.
 func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportClient client.Client, apiExportName string) (*rest.Config, error) {
 
-	var apiExport apisv1alpha1.APIExport
+	// var apiExport apisv1alpha1.APIExport
 
-	if apiExportName != "" {
-		if err := apiExportClient.Get(ctx, types.NamespacedName{Name: apiExportName}, &apiExport); err != nil {
-			return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
-		}
-	} else {
-		exports := &apisv1alpha1.APIExportList{}
-		if err := apiExportClient.List(ctx, exports); err != nil {
-			return nil, fmt.Errorf("error listing APIExports: %w", err)
-		}
-		if len(exports.Items) == 0 {
-			return nil, fmt.Errorf("no APIExport found")
-		}
-		if len(exports.Items) > 1 {
-			return nil, fmt.Errorf("more than one APIExport found")
-		}
-		apiExport = exports.Items[0]
-	}
+	// if apiExportName != "" {
+	// 	if err := apiExportClient.Get(ctx, types.NamespacedName{Name: apiExportName}, &apiExport); err != nil {
+	// 		return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
+	// 	}
+	// } else {
+	// 	exports := &apisv1alpha1.APIExportList{}
+	// 	if err := apiExportClient.List(ctx, exports); err != nil {
+	// 		return nil, fmt.Errorf("error listing APIExports: %w", err)
+	// 	}
+	// 	if len(exports.Items) == 0 {
+	// 		return nil, fmt.Errorf("no APIExport found")
+	// 	}
+	// 	if len(exports.Items) > 1 {
+	// 		return nil, fmt.Errorf("more than one APIExport found")
+	// 	}
+	// 	apiExport = exports.Items[0]
+	// }
 
-	if len(apiExport.Status.VirtualWorkspaces) < 1 {
-		return nil, fmt.Errorf("APIExport %q status.virtualWorkspaces is empty", apiExportName)
-	}
+	// if len(apiExport.Status.VirtualWorkspaces) < 1 {
+	// 	return nil, fmt.Errorf("APIExport %q status.virtualWorkspaces is empty", apiExportName)
+	// }
 
 	cfg = rest.CopyConfig(cfg)
-	// TODO: GITOPSRVCE-204 - implement sharding of virtual workspaces
-	cfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
+	// // TODO: GITOPSRVCE-204 - implement sharding of virtual workspaces
+	// cfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 
 	return cfg, nil
 }
 
 func kcpAPIsGroupPresent(discoveryClient discovery.DiscoveryInterface) (bool, error) {
-	apiGroupList, err := discoveryClient.ServerGroups()
-	if err != nil {
-		return false, fmt.Errorf("failed to get server groups: %w", err)
-	}
+	// apiGroupList, err := discoveryClient.ServerGroups()
+	// if err != nil {
+	// 	return false, fmt.Errorf("failed to get server groups: %w", err)
+	// }
 
-	for _, group := range apiGroupList.Groups {
-		if group.Name == apisv1alpha1.SchemeGroupVersion.Group {
-			for _, version := range group.Versions {
-				if version.Version == apisv1alpha1.SchemeGroupVersion.Version {
-					return true, nil
-				}
-			}
-		}
-	}
+	// for _, group := range apiGroupList.Groups {
+	// 	// if group.Name == apisv1alpha1.SchemeGroupVersion.Group {
+	// 	// 	for _, version := range group.Versions {
+	// 	// 		if version.Version == apisv1alpha1.SchemeGroupVersion.Version {
+	// 	// 			return true, nil
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+	// }
 	return false, nil
 }
 
@@ -210,24 +201,24 @@ func NewVirtualWorkspaceClient(apiExportName string) (client.Client, error) {
 }
 
 func newClusterAwareClient(restConfig *rest.Config, scheme *runtime.Scheme, withMapper bool) (client.Client, error) {
-	httpClient, err := kcp.ClusterAwareHTTPClient(restConfig)
-	if err != nil {
-		fmt.Printf("error creating HTTP client: %v\n", err)
-		return nil, err
-	}
+	// httpClient, err := kcp.ClusterAwareHTTPClient(restConfig)
+	// if err != nil {
+	// 	fmt.Printf("error creating HTTP client: %v\n", err)
+	// 	return nil, err
+	// }
 
-	var restMapper meta.RESTMapper
-	if withMapper {
-		restMapper, err = kcp.NewClusterAwareMapperProvider(restConfig)
-		if err != nil {
-			return nil, fmt.Errorf("error creating Cluster Aware Mapper: %v", err)
-		}
-	}
+	// var restMapper meta.RESTMapper
+	// if withMapper {
+	// 	restMapper, err = kcp.NewClusterAwareMapperProvider(restConfig)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("error creating Cluster Aware Mapper: %v", err)
+	// 	}
+	// }
 
 	return client.New(restConfig, client.Options{
-		Scheme:     scheme,
-		HTTPClient: httpClient,
-		Mapper:     restMapper,
+		Scheme: scheme,
+		// HTTPClient: httpClient,
+		// Mapper:     restMapper,
 	})
 }
 
@@ -236,17 +227,17 @@ func registerSchemes(scheme *runtime.Scheme) error {
 		return fmt.Errorf("failed to add client go to scheme: %v", err)
 	}
 
-	if err := tenancyv1alpha1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("failed to add %s to scheme: %v", tenancyv1alpha1.SchemeGroupVersion, err)
-	}
+	// if err := tenancyv1alpha1.AddToScheme(scheme); err != nil {
+	// 	return fmt.Errorf("failed to add %s to scheme: %v", tenancyv1alpha1.SchemeGroupVersion, err)
+	// }
 
-	if err := datav1alpha1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("failed to add %s to scheme: %v", datav1alpha1.GroupVersion, err)
-	}
+	// if err := datav1alpha1.AddToScheme(scheme); err != nil {
+	// 	return fmt.Errorf("failed to add %s to scheme: %v", datav1alpha1.GroupVersion, err)
+	// }
 
-	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("failed to add %s to scheme: %v", apisv1alpha1.SchemeGroupVersion, err)
-	}
+	// if err := apisv1alpha1.AddToScheme(scheme); err != nil {
+	// 	return fmt.Errorf("failed to add %s to scheme: %v", apisv1alpha1.SchemeGroupVersion, err)
+	// }
 
 	if err := gitopsv1alpha1.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("failed to add %s to scheme: %v", gitopsv1alpha1.GroupVersion, err)
@@ -257,19 +248,19 @@ func registerSchemes(scheme *runtime.Scheme) error {
 
 // AddKCPClusterToContext injects the cluster name into the context when running in a KCP environment with virtual workspaces enabled
 func AddKCPClusterToContext(ctx context.Context, clusterName string) context.Context {
-	if clusterName != "" && !IsKCPVirtualWorkspaceDisabled() {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(clusterName))
-	}
+	// if clusterName != "" && !IsKCPVirtualWorkspaceDisabled() {
+	// 	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(clusterName))
+	// }
 	return ctx
 }
 
 // RemoveKCPClusterFromContext removes the cluster name from the context when running in a KCP environment with virtual workspaces enabled
 func RemoveKCPClusterFromContext(ctx context.Context) context.Context {
 	if !IsKCPVirtualWorkspaceDisabled() {
-		clusterName, exists := logicalcluster.ClusterFromContext(ctx)
-		if exists {
-			ctx = context.WithValue(ctx, logicalcluster.New(clusterName.String()), nil)
-		}
+		// clusterName, exists := logicalcluster.ClusterFromContext(ctx)
+		// if exists {
+		// 	ctx = context.WithValue(ctx, logicalcluster.New(clusterName.String()), nil)
+		// }
 	}
 	return ctx
 }
