@@ -22,8 +22,6 @@ import (
 	"strings"
 
 	codereadytoolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,9 +35,9 @@ import (
 	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	applicationv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	gitopsdeploymentv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend-shared/apis/managed-gitops/v1alpha1"
-
+	applicationv1beta1 "github.com/redhat-appstudio/application-api/api/v1beta1"
 	appstudioredhatcomcontrollers "github.com/redhat-appstudio/managed-gitops/appstudio-controller/controllers/appstudio.redhat.com"
+	gitopsdeploymentv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend-shared/apis/managed-gitops/v1alpha1"
 
 	sharedutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util"
 	logutil "github.com/redhat-appstudio/managed-gitops/backend-shared/util/log"
@@ -55,6 +53,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(applicationv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
 	// utilruntime.Must(managedgitopsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(gitopsdeploymentv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(applicationv1alpha1.AddToScheme(scheme))
@@ -75,10 +74,7 @@ func main() {
 	flag.StringVar(&profilerAddr, "profiler-address", ":6062", "The address for serving pprof profiles")
 
 	opts := crzap.Options{
-		TimeEncoder: zapcore.ISO8601TimeEncoder,
-		ZapOpts: []zap.Option{
-			zap.WithCaller(true),
-		},
+		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -167,8 +163,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (&applicationv1alpha1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Environment")
+		//if err = (&applicationv1alpha1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
+		//	setupLog.Error(err, "unable to create webhook for V1", "webhook", "Environment")
+		//	os.Exit(1)
+		//}
+
+		if err = (&applicationv1beta1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook for V2", "webhook", "Environment")
 			os.Exit(1)
 		}
 	}

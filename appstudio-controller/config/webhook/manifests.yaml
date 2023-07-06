@@ -1,5 +1,35 @@
 ---
 apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+webhooks:
+- admissionReviewVersions:
+  - v1alpha1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-appstudio-redhat-com-v1beta1-environment
+  failurePolicy: Fail
+  name: menvironment.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - environments
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
@@ -67,23 +97,25 @@ webhooks:
     resources:
     - promotionruns
   sideEffects: None
-# - admissionReviewVersions:
-#   - v1
-#   clientConfig:
-#     service:
-#       name: webhook-service
-#       namespace: system
-#       path: /validate-appstudio-redhat-com-v1alpha1-environment
-#   failurePolicy: Fail
-#   name: venvironment.kb.io
-#   rules:
-#   - apiGroups:
-#     - appstudio.redhat.com
-#     apiVersions:
-#     - v1alpha1
-#     operations:
-#     - CREATE
-#     - UPDATE
-#     resources:
-#     - environments
-#   sideEffects: None
+- admissionReviewVersions:
+  - v1alpha1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-appstudio-redhat-com-v1beta1-environment
+  failurePolicy: Fail
+  name: venvironment.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - environments
+  sideEffects: None
+

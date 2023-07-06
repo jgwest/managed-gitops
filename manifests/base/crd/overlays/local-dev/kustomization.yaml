@@ -2,6 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- https://github.com/redhat-appstudio/application-api/config/crd?ref=1ccc9aa0e75adff929925d4f12c268550bf62ea3
+- https://github.com/jgwest/application-api/config/crd
 - https://github.com/codeready-toolchain/host-operator/config/crd?ref=826d3d5928fefa0105852bda895d326abefe992d
 - ../../base
