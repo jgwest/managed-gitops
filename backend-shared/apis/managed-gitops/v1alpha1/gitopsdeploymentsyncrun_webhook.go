@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -55,26 +56,26 @@ func (r *GitOpsDeploymentSyncRun) Default() {
 var _ webhook.Validator = &GitOpsDeploymentSyncRun{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentSyncRun) ValidateCreate() error {
+func (r *GitOpsDeploymentSyncRun) ValidateCreate() (admission.Warnings, error) {
 	gitopsdeploymentsyncrunlog.Info("validate create", "name", r.Name)
 
 	if r.Name == invalid_name {
-		return fmt.Errorf(error_invalid_name)
+		return nil, fmt.Errorf(error_invalid_name)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentSyncRun) ValidateUpdate(old runtime.Object) error {
+func (r *GitOpsDeploymentSyncRun) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	gitopsdeploymentsyncrunlog.Info("validate update", "name", r.Name)
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentSyncRun) ValidateDelete() error {
+func (r *GitOpsDeploymentSyncRun) ValidateDelete() (admission.Warnings, error) {
 	gitopsdeploymentsyncrunlog.Info("validate delete", "name", r.Name)
 
-	return nil
+	return nil, nil
 }

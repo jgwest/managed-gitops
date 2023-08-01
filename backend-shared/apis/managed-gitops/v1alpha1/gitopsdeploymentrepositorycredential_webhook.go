@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const error_invalid_repository = "repository must begin with ssh:// or https://"
@@ -53,32 +54,32 @@ func (r *GitOpsDeploymentRepositoryCredential) Default() {
 var _ webhook.Validator = &GitOpsDeploymentRepositoryCredential{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentRepositoryCredential) ValidateCreate() error {
+func (r *GitOpsDeploymentRepositoryCredential) ValidateCreate() (admission.Warnings, error) {
 	gitopsdeploymentrepositorycredentiallog.Info("validate create", "name", r.Name)
 
 	if err := r.ValidateGitOpsDeploymentRepoCred(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentRepositoryCredential) ValidateUpdate(old runtime.Object) error {
+func (r *GitOpsDeploymentRepositoryCredential) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	gitopsdeploymentrepositorycredentiallog.Info("validate update", "name", r.Name)
 
 	if err := r.ValidateGitOpsDeploymentRepoCred(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentRepositoryCredential) ValidateDelete() error {
+func (r *GitOpsDeploymentRepositoryCredential) ValidateDelete() (admission.Warnings, error) {
 	gitopsdeploymentrepositorycredentiallog.Info("validate delete", "name", r.Name)
 
-	return nil
+	return nil, nil
 }
 func (r *GitOpsDeploymentRepositoryCredential) ValidateGitOpsDeploymentRepoCred() error {
 

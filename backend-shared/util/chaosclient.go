@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -162,6 +163,21 @@ func (pc *ChaosClient) RESTMapper() meta.RESTMapper {
 	return res
 }
 
+// RESTMapper returns the rest this client is using.
+func (pc *ChaosClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return pc.InnerClient.GroupVersionKindFor(obj)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (pc *ChaosClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return pc.InnerClient.IsObjectNamespaced(obj)
+}
+
+// SubResource implements client.SubResourceClient.
+func (c *ChaosClient) SubResource(subResource string) client.SubResourceClient {
+	return nil
+}
+
 type ChaosClientStatusWrapper struct {
 	innerWriter *client.StatusWriter
 	// parent      *ProxyClient
@@ -170,7 +186,7 @@ type ChaosClientStatusWrapper struct {
 // Update updates the fields corresponding to the status subresource for the
 // given obj. obj must be a struct pointer so that obj can be updated
 // with the content returned by the Server.
-func (pcsw *ChaosClientStatusWrapper) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (pcsw *ChaosClientStatusWrapper) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 
 	if err := shouldSimulateFailure("Status Update", obj); err != nil {
 		return err
@@ -185,7 +201,7 @@ func (pcsw *ChaosClientStatusWrapper) Update(ctx context.Context, obj client.Obj
 // Patch patches the given object's subresource. obj must be a struct
 // pointer so that obj can be updated with the content returned by the
 // Server.
-func (pcsw *ChaosClientStatusWrapper) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (pcsw *ChaosClientStatusWrapper) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 
 	if err := shouldSimulateFailure("Status Patch", obj); err != nil {
 		return err

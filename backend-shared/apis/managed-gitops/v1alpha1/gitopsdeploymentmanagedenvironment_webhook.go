@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const error_invalid_cluster_api_url = "cluster api url must start with https://"
@@ -53,32 +54,32 @@ func (r *GitOpsDeploymentManagedEnvironment) Default() {
 var _ webhook.Validator = &GitOpsDeploymentManagedEnvironment{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentManagedEnvironment) ValidateCreate() error {
+func (r *GitOpsDeploymentManagedEnvironment) ValidateCreate() (admission.Warnings, error) {
 	gitopsdeploymentmanagedenvironmentlog.Info("validate create", "name", r.Name)
 
 	if err := r.ValidateGitOpsDeploymentManagedEnv(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentManagedEnvironment) ValidateUpdate(old runtime.Object) error {
+func (r *GitOpsDeploymentManagedEnvironment) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	gitopsdeploymentmanagedenvironmentlog.Info("validate update", "name", r.Name)
 
 	if err := r.ValidateGitOpsDeploymentManagedEnv(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *GitOpsDeploymentManagedEnvironment) ValidateDelete() error {
+func (r *GitOpsDeploymentManagedEnvironment) ValidateDelete() (admission.Warnings, error) {
 	gitopsdeploymentmanagedenvironmentlog.Info("validate delete", "name", r.Name)
 
-	return nil
+	return nil, nil
 }
 
 func (r *GitOpsDeploymentManagedEnvironment) ValidateGitOpsDeploymentManagedEnv() error {
