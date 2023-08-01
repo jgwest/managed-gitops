@@ -305,7 +305,7 @@ var _ = Describe("Test DeploymentTargetReclaimController", func() {
 					}
 					Expect(k8sClient.Create(context.Background(), spaceRequest)).To(Succeed())
 
-					req := reconciler.findDeploymentTargetsForSpaceRequests(spaceRequest)
+					req := reconciler.findDeploymentTargetsForSpaceRequests(context.Background(), spaceRequest)
 					Expect(req).To(BeEmpty())
 				})
 			})
@@ -315,7 +315,7 @@ var _ = Describe("Test DeploymentTargetReclaimController", func() {
 
 					notASpaceRequest := &appstudiosharedv1.DeploymentTarget{}
 
-					req := reconciler.findDeploymentTargetsForSpaceRequests(notASpaceRequest)
+					req := reconciler.findDeploymentTargetsForSpaceRequests(context.Background(), notASpaceRequest)
 					Expect(req).To(BeEmpty())
 				})
 			})
@@ -354,7 +354,7 @@ var _ = Describe("Test DeploymentTargetReclaimController", func() {
 					}
 					Expect(k8sClient.Create(context.Background(), dt)).To(Succeed())
 
-					req := reconciler.findDeploymentTargetsForSpaceRequests(spaceRequest)
+					req := reconciler.findDeploymentTargetsForSpaceRequests(context.Background(), spaceRequest)
 					Expect(req).To(HaveLen(1))
 					Expect(req[0].NamespacedName).To(Equal(types.NamespacedName{Namespace: dt.Namespace, Name: dt.Name}))
 

@@ -1126,7 +1126,7 @@ var _ = Describe("Environment controller tests", func() {
 					env1.Name: 1,
 					env2.Name: 1,
 				}
-				reqs := reconciler.findObjectsForDeploymentTargetClaim(&dtc)
+				reqs := reconciler.findObjectsForDeploymentTargetClaim(ctx, &dtc)
 				Expect(len(reqs)).To(Equal(len(expectedReqs)))
 				for _, r := range reqs {
 					Expect(expectedReqs[r.Name]).To(Equal(1))
@@ -1142,7 +1142,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForDeploymentTargetClaim(&dtc)
+				reqs := reconciler.findObjectsForDeploymentTargetClaim(ctx, &dtc)
 
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
@@ -1155,7 +1155,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForDeploymentTargetClaim(&dt)
+				reqs := reconciler.findObjectsForDeploymentTargetClaim(ctx, &dt)
 
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
@@ -1219,7 +1219,7 @@ var _ = Describe("Environment controller tests", func() {
 					env1.Name: 1,
 					env2.Name: 1,
 				}
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 				Expect(len(reqs)).To(Equal(len(expectedReqs)))
 				for _, r := range reqs {
 					Expect(expectedReqs[r.Name]).To(Equal(1))
@@ -1235,7 +1235,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
@@ -1248,7 +1248,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dtc)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dtc)
 
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
@@ -1331,7 +1331,7 @@ var _ = Describe("Environment controller tests", func() {
 					env1.Name: 1,
 					env2.Name: 1,
 				}
-				reqs := reconciler.findObjectsForSecret(&secret)
+				reqs := reconciler.findObjectsForSecret(ctx, &secret)
 				Expect(len(reqs)).To(Equal(len(expectedReqs)))
 				for _, r := range reqs {
 					Expect(expectedReqs[r.Name]).To(Equal(1))
@@ -1351,7 +1351,7 @@ var _ = Describe("Environment controller tests", func() {
 					Type: sharedutil.ManagedEnvironmentSecretType,
 				}
 
-				reqs := reconciler.findObjectsForSecret(&secret)
+				reqs := reconciler.findObjectsForSecret(ctx, &secret)
 				Expect(reqs).To(Equal([]reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -1370,7 +1370,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForSecret(&secret)
+				reqs := reconciler.findObjectsForSecret(ctx, &secret)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
 
@@ -1382,7 +1382,7 @@ var _ = Describe("Environment controller tests", func() {
 					},
 				}
 
-				reqs := reconciler.findObjectsForSecret(&dtc)
+				reqs := reconciler.findObjectsForSecret(ctx, &dtc)
 
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
@@ -1411,10 +1411,10 @@ var _ = Describe("Environment controller tests", func() {
 				err = k8sClient.Create(ctx, &secretAuth)
 				Expect(err).To(BeNil())
 
-				reqs := reconciler.findObjectsForSecret(&secret)
+				reqs := reconciler.findObjectsForSecret(ctx, &secret)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 
-				reqs = reconciler.findObjectsForSecret(&secretAuth)
+				reqs = reconciler.findObjectsForSecret(ctx, &secretAuth)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
 		})
@@ -1586,7 +1586,7 @@ var _ = Describe("Environment controller tests", func() {
 			func(managedEnv managedgitopsv1alpha1.GitOpsDeploymentManagedEnvironment, expected []reconcile.Request) {
 
 				// The elements in the output of the function should match the elements in 'expected', regardless of order
-				res := reconciler.findObjectsForGitOpsDeploymentManagedEnvironment(&managedEnv)
+				res := reconciler.findObjectsForGitOpsDeploymentManagedEnvironment(ctx, &managedEnv)
 				Expect(res).To(ConsistOf(expected))
 
 			}, Entry("managedenvironment with no owner refs should return no results", managedgitopsv1alpha1.GitOpsDeploymentManagedEnvironment{

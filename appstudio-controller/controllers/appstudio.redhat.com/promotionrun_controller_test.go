@@ -31,6 +31,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 		var promotionRunReconciler PromotionRunReconciler
 		var component1, component2, component3 appstudiosharedv1.Component
 
+		replica := 3
+
 		BeforeEach(func() {
 			ctx = context.Background()
 
@@ -500,7 +502,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -557,7 +559,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -597,7 +599,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -650,7 +652,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -711,7 +713,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -813,7 +815,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -910,7 +912,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},

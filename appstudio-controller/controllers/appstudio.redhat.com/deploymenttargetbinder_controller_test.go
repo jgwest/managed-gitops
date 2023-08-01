@@ -1109,7 +1109,7 @@ var _ = Describe("Test DeploymentTargetClaimBinderController", func() {
 
 				dt := getDeploymentTarget()
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
 
@@ -1122,7 +1122,7 @@ var _ = Describe("Test DeploymentTargetClaimBinderController", func() {
 					dt.Spec.ClaimRef = dtc.Name
 				})
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 				Expect(reqs).To(Equal([]reconcile.Request{
 					newRequest(dtc.Namespace, dtc.Name),
 				}))
@@ -1137,7 +1137,7 @@ var _ = Describe("Test DeploymentTargetClaimBinderController", func() {
 				err := k8sClient.Create(ctx, &dtc)
 				Expect(err).To(BeNil())
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 				Expect(reqs).To(Equal([]reconcile.Request{
 					newRequest(dtc.Namespace, dtc.Name),
 				}))
@@ -1146,14 +1146,14 @@ var _ = Describe("Test DeploymentTargetClaimBinderController", func() {
 			It("shouldn't return any request if no DTC was found while handling the DT event", func() {
 				dt := getDeploymentTarget()
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dt)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dt)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
 
 			It("shouldn't return any request if an object of different type is passed", func() {
 				dtc := getDeploymentTargetClaim()
 
-				reqs := reconciler.findObjectsForDeploymentTarget(&dtc)
+				reqs := reconciler.findObjectsForDeploymentTarget(ctx, &dtc)
 				Expect(reqs).To(Equal([]reconcile.Request{}))
 			})
 		})

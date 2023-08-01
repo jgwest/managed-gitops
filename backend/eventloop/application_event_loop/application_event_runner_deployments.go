@@ -1122,7 +1122,7 @@ func (a *applicationEventLoopRunner_Action) applicationEventRunner_handleUpdateD
 		return crUpdated_false, nil
 	}
 	// Update the actual object in Kubernetes
-	if err := a.workspaceClient.Status().Update(ctx, gitopsDeployment, &client.UpdateOptions{}); err != nil {
+	if err := a.workspaceClient.Status().Update(ctx, gitopsDeployment, &client.SubResourceUpdateOptions{}); err != nil {
 		return crUpdated_false, err
 	}
 	// We don't need to log status updates, e.g. via 'sharedutil.LogAPIResourceChangeEvent'
@@ -1194,7 +1194,7 @@ func (g *gitOpsDeploymentAdapter) setGitOpsDeploymentCondition(conditionType man
 
 		g.conditionManager.SetCondition(conditions, conditionType, managedgitopsv1alpha1.GitOpsConditionStatus(corev1.ConditionTrue),
 			reason, userError)
-		return g.client.Status().Update(g.ctx, g.gitOpsDeployment, &client.UpdateOptions{})
+		return g.client.Status().Update(g.ctx, g.gitOpsDeployment, &client.SubResourceUpdateOptions{})
 
 	} else {
 		// if error does not exist, check if the condition exists or not
@@ -1205,7 +1205,7 @@ func (g *gitOpsDeploymentAdapter) setGitOpsDeploymentCondition(conditionType man
 				g.conditionManager.SetCondition(conditions, conditionType,
 					managedgitopsv1alpha1.GitOpsConditionStatus(corev1.ConditionFalse), reason, "")
 
-				return g.client.Status().Update(g.ctx, g.gitOpsDeployment, &client.UpdateOptions{})
+				return g.client.Status().Update(g.ctx, g.gitOpsDeployment, &client.SubResourceUpdateOptions{})
 			}
 			// do nothing, if the condition is already marked as resolved
 		}

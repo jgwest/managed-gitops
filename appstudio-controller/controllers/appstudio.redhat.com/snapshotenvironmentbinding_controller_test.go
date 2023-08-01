@@ -36,6 +36,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 
 		var environment appstudiosharedv1.Environment
 
+		replica := 3
+
 		BeforeEach(func() {
 			ctx = context.Background()
 
@@ -95,7 +97,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},
@@ -229,7 +231,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 						Env: []appstudiosharedv1.EnvVarPair{
 							{Name: "My_STG_ENV", Value: "1000"},
 						},
-						Replicas: 3,
+						Replicas: &replica,
 					},
 				},
 				{
@@ -238,7 +240,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 						Env: []appstudiosharedv1.EnvVarPair{
 							{Name: "My_STG_ENV", Value: "1000"},
 						},
-						Replicas: 3,
+						Replicas: &replica,
 					},
 				},
 			}
@@ -1011,7 +1013,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 					},
 				}
 
-				Expect(bindingReconciler.findObjectsForDeploymentTarget(&seb)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForDeploymentTarget(ctx, &seb)).To(BeEmpty())
 			})
 
 		})
@@ -1093,7 +1095,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				err = k8sClient.Create(ctx, &seb)
 				Expect(err).To(BeNil())
 
-				Expect(bindingReconciler.findObjectsForDeploymentTarget(&dt)).To(ConsistOf([]reconcile.Request{
+				Expect(bindingReconciler.findObjectsForDeploymentTarget(ctx, &dt)).To(ConsistOf([]reconcile.Request{
 					{NamespacedName: client.ObjectKeyFromObject(&seb)},
 				}))
 
@@ -1150,7 +1152,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 					},
 				}
 
-				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(&seb)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(ctx, &seb)).To(BeEmpty())
 			})
 
 		})
@@ -1213,7 +1215,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				err = k8sClient.Create(ctx, &seb)
 				Expect(err).To(BeNil())
 
-				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(&dtc)).To(ConsistOf([]reconcile.Request{
+				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(ctx, &dtc)).To(ConsistOf([]reconcile.Request{
 					{NamespacedName: client.ObjectKeyFromObject(&seb)},
 				}))
 
@@ -1278,7 +1280,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				err = k8sClient.Create(ctx, &seb)
 				Expect(err).To(BeNil())
 
-				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(&dtc)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForDeploymentTargetClaim(ctx, &dtc)).To(BeEmpty())
 
 			})
 		})
@@ -1351,7 +1353,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 					},
 				}
 
-				Expect(bindingReconciler.findObjectsForEnvironment(&env)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForEnvironment(ctx, &env)).To(BeEmpty())
 			})
 
 		})
@@ -1405,7 +1407,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 					},
 				}
 
-				Expect(bindingReconciler.findObjectsForEnvironment(&thirdEnv)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForEnvironment(ctx, &thirdEnv)).To(BeEmpty())
 			})
 
 		})
@@ -1445,7 +1447,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 				err = k8sClient.Create(ctx, &seb)
 				Expect(err).To(BeNil())
 
-				Expect(bindingReconciler.findObjectsForEnvironment(&env)).
+				Expect(bindingReconciler.findObjectsForEnvironment(ctx, &env)).
 					To(Equal([]reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(&seb)}}))
 			})
 
@@ -1467,7 +1469,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 					},
 				}
 
-				Expect(bindingReconciler.findObjectsForEnvironment(&seb)).To(BeEmpty())
+				Expect(bindingReconciler.findObjectsForEnvironment(ctx, &seb)).To(BeEmpty())
 			})
 		})
 
@@ -1480,6 +1482,8 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 		var bindingReconciler SnapshotEnvironmentBindingReconciler
 
 		var environment appstudiosharedv1.Environment
+
+		replica := 3
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -1540,7 +1544,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 						{
@@ -1549,7 +1553,7 @@ var _ = Describe("SnapshotEnvironmentBinding Reconciler Tests", func() {
 								Env: []appstudiosharedv1.EnvVarPair{
 									{Name: "My_STG_ENV", Value: "1000"},
 								},
-								Replicas: 3,
+								Replicas: &replica,
 							},
 						},
 					},

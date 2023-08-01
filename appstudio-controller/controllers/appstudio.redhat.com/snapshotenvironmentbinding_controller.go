@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -611,18 +610,18 @@ func (r *SnapshotEnvironmentBindingReconciler) SetupWithManager(mgr ctrl.Manager
 		For(&appstudioshared.SnapshotEnvironmentBinding{}).
 		Owns(&apibackend.GitOpsDeployment{}).
 		Watches(
-			&source.Kind{Type: &appstudioshared.Environment{}},
+			&appstudioshared.Environment{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForEnvironment),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &appstudioshared.DeploymentTarget{}},
+			&appstudioshared.DeploymentTarget{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForDeploymentTarget),
 			// When/if we start using DT's .status field, switch this ResourceVersionChangedPredicate:
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Watches(
-			&source.Kind{Type: &appstudioshared.DeploymentTargetClaim{}},
+			&appstudioshared.DeploymentTargetClaim{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForDeploymentTargetClaim),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).Complete(r)
@@ -630,8 +629,7 @@ func (r *SnapshotEnvironmentBindingReconciler) SetupWithManager(mgr ctrl.Manager
 
 // findObjectsForDeploymentTarget maps an incoming DT event to the corresponding Environment request.
 // We should reconcile Environments if the DT credentials get updated.
-func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTargetClaim(dtc client.Object) []reconcile.Request {
-	ctx := context.Background()
+func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTargetClaim(ctx context.Context, dtc client.Object) []reconcile.Request {
 	handlerLog := log.FromContext(ctx).
 		WithName(logutil.LogLogger_managed_gitops)
 
@@ -679,8 +677,7 @@ func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTargetCla
 
 // findObjectsForDeploymentTarget maps an incoming DT event to the corresponding Environment request.
 // We should reconcile Environments if the DT credentials get updated.
-func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTarget(dt client.Object) []reconcile.Request {
-	ctx := context.Background()
+func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTarget(ctx context.Context, dt client.Object) []reconcile.Request {
 	handlerLog := log.FromContext(ctx).
 		WithName(logutil.LogLogger_managed_gitops)
 
@@ -748,9 +745,8 @@ func (r *SnapshotEnvironmentBindingReconciler) findObjectsForDeploymentTarget(dt
 	return snapshotRequests
 }
 
-// findObjectsForManagedEnvironment will reconcile on any ManagedEnvironments that are (indirectly) referenced by SEBs
-func (r *SnapshotEnvironmentBindingReconciler) findObjectsForEnvironment(envParam client.Object) []reconcile.Request {
-	ctx := context.Background()
+// findObjectsForEnvironment will reconcile on any Environments that are (indirectly) referenced by SEBs
+func (r *SnapshotEnvironmentBindingReconciler) findObjectsForEnvironment(ctx context.Context, envParam client.Object) []reconcile.Request {
 	handlerLog := log.FromContext(ctx).
 		WithName(logutil.LogLogger_managed_gitops)
 
