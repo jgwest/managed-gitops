@@ -44,6 +44,9 @@ var _ = Describe("Standalone ArgoCD instance E2E tests", func() {
 		})
 
 		testStandaloneArgoCD := func(testUpdate bool) {
+
+			fixture.SkipIfArgoCDOperandRequired()
+
 			By("creating ArgoCD resource")
 			ctx := context.Background()
 			log := log.FromContext(ctx)

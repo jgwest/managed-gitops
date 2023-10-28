@@ -4,7 +4,20 @@ ARGO_CD_VERSION="${ARGO_CD_VERSION:-stable}"
 ARGO_CD_NAMESPACE="${ARGO_CD_NAMESPACE:-gitops-service-argocd}"
 ARGO_CD_PORT="${ARGO_CD_PORT:-4000}"
 
+
+SCRIPT_PATH="$(
+  cd -- "$(dirname "$0")" >/dev/null 2>&1 || exit
+  pwd -P
+)"
+
+export ROOT_PATH=$SCRIPT_PATH
+
+
 # This script installs ArgoCD vanilla according to https://argo-cd.readthedocs.io/en/stable/getting_started/
+
+
+
+
 
 # Checks if a binary is present on the local system
 exit_if_binary_not_installed() {
@@ -16,9 +29,22 @@ exit_if_binary_not_installed() {
     done
 }
 
+# Install Argo CD to target namespace, using kustomize.
+# - Kustomize ensures that the ClusterRoleBindings are pointing to the ServiceAccount in the proper namespace.
+build_argo_cd_manifests() {
+    KUSTOMIZE_TMP_DIR=$(mktemp -d)    
+    cp -r $ROOT_PATH/manifests/k8s-argo-cd/* $KUSTOMIZE_TMP_DIR
+    
+    mv $KUSTOMIZE_TMP_DIR/kustomization.yaml $KUSTOMIZE_TMP_DIR/kustomization.yaml.old
+    
+    cat $KUSTOMIZE_TMP_DIR/kustomization.yaml.old | ARGO_CD_NAMESPACE=$ARGO_CD_NAMESPACE ARGO_CD_VERSION=$ARGO_CD_VERSION envsubst > $KUSTOMIZE_TMP_DIR/kustomization.yaml
+
+}
+
 # Install 'ArgoCD Web UI' in your Kubernetes cluster
 if [ "$1" = "install" ]; then
     exit_if_binary_not_installed "kubectl"
+    exit_if_binary_not_installed "kustomize"
 
     if kubectl -n "$ARGO_CD_NAMESPACE" get pods | grep argocd-server | grep '1/1' | grep 'Running' &>/dev/null; then
         echo "ArgoCD is already running..."
@@ -28,7 +54,11 @@ if [ "$1" = "install" ]; then
 
     # Apply the argo-cd-route manifest
     kubectl create namespace "$ARGO_CD_NAMESPACE" || true
-    kubectl apply -n "$ARGO_CD_NAMESPACE" -f https://raw.githubusercontent.com/argoproj/argo-cd/$ARGO_CD_VERSION/manifests/install.yaml
+    
+    # Build and apply the Argo CD manifests
+    build_argo_cd_manifests
+    
+    kustomize build $KUSTOMIZE_TMP_DIR | kubectl apply -f -
 
     # Get the secret
     counter=0
@@ -104,5 +134,10 @@ fi
 # Remove 'ArgoCD Web UI' from your Kubernetes cluster
 if [ "$1" = "remove" ]; then
     exit_if_binary_not_installed "kubectl"
-    kubectl delete -n "$ARGO_CD_NAMESPACE" -f https://raw.githubusercontent.com/argoproj/argo-cd/$ARGO_CD_VERSION/manifests/install.yaml
+    exit_if_binary_not_installed "kustomize"
+  
+    build_argo_cd_manifests
+    
+    kustomize build $KUSTOMIZE_TMP_DIR | kubectl delete -f -
+    kubectl delete namespace "$ARGO_CD_NAMESPACE" || true
 fi
